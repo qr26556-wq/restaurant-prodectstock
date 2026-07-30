@@ -461,18 +461,18 @@ body[data-theme="dark"]{
         <div class="overflow-menu" id="overflowMenu">
           <button onclick="openQueueModal()">Customer Queue</button>
           <button onclick="openKotModal()">Send to Kitchen (KOT)</button>
-          <button onclick="openSplitModal()">Split Bill</button>
-          <button onclick="openTableModal(true)">Merge Tables</button>
+          <button id="splitMenuBtn" onclick="openSplitModal()">Split Bill</button>
+          <button id="mergeMenuBtn" onclick="openTableModal(true)">Merge Tables</button>
           <button onclick="openCustomerModal()">Customer</button>
           <button onclick="stubAction('Gift Card')">Gift Card</button>
           <hr>
-          <button onclick="openHistoryModal()">Order History / Reprint</button>
-          <button onclick="openDayModal()">🕐 Start / End Day</button>
-          <button onclick="openReportsModal('dashboard')">Dashboard</button>
-          <button onclick="openReportsModal('daily')">Reports</button>
+          <button id="historyMenuBtn" onclick="openHistoryModal()">Order History / Reprint</button>
+          <button id="dayMenuBtn" onclick="openDayModal()">🕐 Start / End Day</button>
+          <button id="dashboardMenuBtn" onclick="openReportsModal('dashboard')">Dashboard</button>
+          <button id="reportsMenuBtn" onclick="openReportsModal('daily')">Reports</button>
           <hr>
-          <button onclick="openAdminModal('items')" style="color:var(--amber);font-weight:600;">⚙ Admin Panel</button>
-          <button onclick="openSettingsModal()">Settings</button>
+          <button id="adminMenuBtn" onclick="openAdminModal('items')" style="color:var(--amber);font-weight:600;">⚙ Admin Panel</button>
+          <button id="settingsMenuBtn" onclick="openSettingsModal()">Settings</button>
           <button onclick="doLogout()">Logout</button>
         </div>
       </div>
@@ -968,6 +968,49 @@ let state = {
   processingPayment:false,
 };
 
+/* ===========================
+   ROLE BASED ACCESS CONTROL
+=========================== */
+const ROLE_PERMISSIONS = {
+  Admin: {
+    dashboard:true, reports:true, history:true, adminPanel:true, inventory:true,
+    suppliers:true, customers:true, settings:true, cloudSync:true, backup:true,
+    currency:true, refund:true, voidOrder:true, startEndDay:true, kitchen:true,
+    splitBill:true, mergeTables:true, payments:true, priceEdit:true, menuEdit:true,
+    categoryEdit:true, staffManagement:true
+  },
+  Manager: {
+    dashboard:true, reports:true, history:true, adminPanel:false, inventory:true,
+    suppliers:false, customers:true, settings:false, cloudSync:false, backup:false,
+    currency:false, refund:true, voidOrder:false, startEndDay:true, kitchen:true,
+    splitBill:true, mergeTables:true, payments:true, priceEdit:false, menuEdit:false,
+    categoryEdit:false, staffManagement:false
+  },
+  Cashier: {
+    dashboard:false, reports:false, history:false, adminPanel:false, inventory:false,
+    suppliers:false, customers:true, settings:false, cloudSync:false, backup:false,
+    currency:false, refund:false, voidOrder:false, startEndDay:false, kitchen:true,
+    splitBill:false, mergeTables:false, payments:true, priceEdit:false, menuEdit:false,
+    categoryEdit:false, staffManagement:false
+  }
+};
+function hasPermission(permission){
+  const role = state.loggedIn?.role || 'Cashier';
+  const perms = ROLE_PERMISSIONS[role];
+  return !!(perms && perms[permission] === true);
+}
+function updateUIForRole(){
+  const setVis = (id, allowed) => { const el = document.getElementById(id); if(el) el.style.display = allowed ? '' : 'none'; };
+  setVis('dashboardMenuBtn', hasPermission('dashboard'));
+  setVis('reportsMenuBtn', hasPermission('reports'));
+  setVis('historyMenuBtn', hasPermission('history'));
+  setVis('adminMenuBtn', hasPermission('adminPanel'));
+  setVis('settingsMenuBtn', hasPermission('settings'));
+  setVis('dayMenuBtn', hasPermission('startEndDay'));
+  setVis('splitMenuBtn', hasPermission('splitBill'));
+  setVis('mergeMenuBtn', hasPermission('mergeTables'));
+}
+
 function fmt(n){ return CURRENCIES[state.currency].symbol + n.toFixed(2); }
 function logActivity(action){
   ACTIVITY_LOG.unshift({time:new Date().toISOString(), who:(state.loggedIn?state.loggedIn.name:'—'), action});
@@ -1267,6 +1310,7 @@ function mergeTablePick(n){
   renderTableGrid();
 }
 function openTableModal(merge){
+  if(merge && !hasPermission('mergeTables')){ flashToast('Merge Tables requires Manager or Admin role'); return; }
   state.mergeMode = !!merge; state.mergeFrom = null;
   document.getElementById('tableModalTitle').textContent = merge ? 'Merge Tables' : 'Select a table';
   document.getElementById('tableModalSub').textContent = merge ? 'Tap an occupied table, then the table to merge it into' : 'Green = free · Red = occupied · "held" = resume order';
@@ -1412,7 +1456,7 @@ let editingItemId = null;
 
 function openAdminModal(tab){
   document.getElementById('overflowMenu').classList.remove('show');
-  if(state.loggedIn && state.loggedIn.role==='Cashier'){ flashToast('Admin Panel requires Manager or Admin role'); return; }
+  if(!hasPermission('adminPanel')){ flashToast('Admin Panel requires Admin role'); return; }
   populateAdminCatSelect();
   renderAdminItemList();
   renderAdminCatList();
@@ -1661,6 +1705,7 @@ function openKotModal(){
 /* ===== Split Bill ===== */
 function openSplitModal(){
   document.getElementById('overflowMenu').classList.remove('show');
+  if(!hasPermission('splitBill')){ flashToast('Split Bill requires Manager or Admin role'); return; }
   if(cartLines().length===0){ flashToast('Ticket is empty — nothing to split'); return; }
   renderSplitPreview();
   document.getElementById('splitOverlay').classList.add('show');
@@ -1676,6 +1721,7 @@ function renderSplitPreview(){
 /* ===== Order History / Reprint / Refund ===== */
 function openHistoryModal(){
   document.getElementById('overflowMenu').classList.remove('show');
+  if(!hasPermission('history')){ flashToast('Order History requires Manager or Admin role'); return; }
   renderHistoryList();
   document.getElementById('historyOverlay').classList.add('show');
 }
@@ -1705,6 +1751,7 @@ function reprintOrder(id){
   document.getElementById('receiptOverlay').classList.add('show');
 }
 function refundOrder(id){
+  if(!hasPermission('refund')){ flashToast('Refund requires Manager or Admin role'); return; }
   const o = ORDERS.find(x=>x.id===id); if(!o) return;
   if(!confirm(`Refund ${id} for ${fmt(o.total)}?`)) return;
   o.status = 'refunded';
@@ -1720,6 +1767,8 @@ function isToday(iso){ const d = new Date(iso), n = new Date(); return d.toDateS
 function isThisMonth(iso){ const d = new Date(iso), n = new Date(); return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear(); }
 function openReportsModal(tab){
   document.getElementById('overflowMenu').classList.remove('show');
+  const perm = tab==='dashboard' ? 'dashboard' : 'reports';
+  if(!hasPermission(perm)){ flashToast('Reports & Dashboard require Manager or Admin role'); return; }
   switchReportsTab(tab||'dashboard');
   document.getElementById('reportsOverlay').classList.add('show');
 }
@@ -1857,6 +1906,7 @@ function last7DaysChart(){
 /* ===== Settings: language / theme / PIN / backup / expenses ===== */
 function openSettingsModal(){
   document.getElementById('overflowMenu').classList.remove('show');
+  if(!hasPermission('settings')){ flashToast('Settings requires Admin role'); return; }
   document.getElementById('settingsWho').textContent = state.loggedIn ? `Signed in as ${state.loggedIn.name} (${state.loggedIn.role})` : '';
   document.getElementById('langSelect').value = state.lang;
   document.getElementById('shopNameInput').value = state.shopName;
@@ -2001,6 +2051,7 @@ function attachCloudListener(){
 function isDayOpen(){ const last = DAY_LOGS[DAY_LOGS.length-1]; return !!(last && !last.closedAt); }
 function openDayModal(){
   document.getElementById('overflowMenu').classList.remove('show');
+  if(!hasPermission('startEndDay')){ flashToast('Start/End Day requires Manager or Admin role'); return; }
   renderDayModal();
   document.getElementById('dayOverlay').classList.add('show');
 }
@@ -2259,6 +2310,7 @@ function attemptLogin(){
   logActivity('Clocked in / signed in');
   saveAll();
   document.getElementById('loginGate').classList.add('hide');
+  updateUIForRole();
   populateWaiterSelect();
   resetIdleTimer();
   flashToast(`Welcome, ${staff.name}`);
