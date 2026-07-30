@@ -2132,8 +2132,10 @@ function attachCloudListener(){
       const data = snap.val();
       if(!data || data.savedAt === state._lastSavedAt) return; // ignore our own echoed write
       applyLoadedData(data);
+      pruneOldData(); // enforce the 35-day cutoff on whatever just came down from the cloud
       renderCategories(); renderMenu(); renderTicket();
       document.getElementById('brandName').textContent = state.shopName;
+      saveAll(); // push the pruned data back so Firebase itself stays cleaned up too
       flashToast('🔄 Synced from another device');
     });
     const statusEl = document.getElementById('syncStatus');
@@ -2152,7 +2154,13 @@ function afterOwnerSignIn(user){
     if(!ref) return;
     ref.once('value').then(snap=>{
       const data = snap.val();
-      if(data){ applyLoadedData(data); renderCategories(); renderMenu(); renderTicket(); flashToast('Welcome back — your shop data loaded'); }
+      if(data){
+        applyLoadedData(data);
+        pruneOldData(); // drop anything older than 35 days right when their account's data loads
+        renderCategories(); renderMenu(); renderTicket();
+        flashToast('Welcome back — your shop data loaded');
+        saveAll(); // write the pruned copy back to Firebase so old data doesn't linger there
+      }
       else { saveAll(); flashToast('New shop account created'); }
       attachCloudListener();
       renderOwnerAccountBox(user);
@@ -2248,16 +2256,35 @@ function checkOwnerLoginOnLoad(){
   });
 }
 
-/* ===== Data Retention: auto-remove records older than 35 days, keep app light ===== */
+/* ===== Data Retention: auto-remove records older than 35 days, keep app light =====
+   IMPORTANT: this must run every time data lands in memory — on first load, on cloud
+   restore after owner login, and on every live cloud sync — and afterwards must be
+   saved back (saveAll) so the 35-day cutoff is enforced in Firebase too, not just
+   on this device. Otherwise old data keeps coming back down from the cloud forever. */
 const DATA_RETENTION_DAYS = 35;
 function pruneOldData(){
   const cutoff = Date.now() - DATA_RETENTION_DAYS*24*60*60*1000;
+  let changed = false;
   const keepByTime = (arr, getTime) => arr.filter(x=>{ const t = getTime(x); return !t || new Date(t).getTime() >= cutoff; });
-  if(Array.isArray(ORDERS)) ORDERS = keepByTime(ORDERS, o=>o.time);
-  if(Array.isArray(ACTIVITY_LOG)){ const filtered = keepByTime(ACTIVITY_LOG, a=>a.time); ACTIVITY_LOG.length=0; ACTIVITY_LOG.push(...filtered); }
-  if(Array.isArray(DAY_LOGS)){ const filtered = keepByTime(DAY_LOGS, d=>d.closedAt||d.openedAt); DAY_LOGS = filtered; }
-  if(Array.isArray(PURCHASES)){ const filtered = keepByTime(PURCHASES, p=>p.date); PURCHASES = filtered; }
+  if(Array.isArray(ORDERS)){ const filtered = keepByTime(ORDERS, o=>o.time); if(filtered.length!==ORDERS.length) changed = true; ORDERS = filtered; }
+  if(Array.isArray(ACTIVITY_LOG)){ const filtered = keepByTime(ACTIVITY_LOG, a=>a.time); if(filtered.length!==ACTIVITY_LOG.length) changed = true; ACTIVITY_LOG.length=0; ACTIVITY_LOG.push(...filtered); }
+  if(Array.isArray(DAY_LOGS)){ const filtered = keepByTime(DAY_LOGS, d=>d.closedAt||d.openedAt); if(filtered.length!==DAY_LOGS.length) changed = true; DAY_LOGS = filtered; }
+  if(Array.isArray(PURCHASES)){ const filtered = keepByTime(PURCHASES, p=>p.date); if(filtered.length!==PURCHASES.length) changed = true; PURCHASES = filtered; }
+  if(Array.isArray(EXPENSES)){ const filtered = keepByTime(EXPENSES, e=>e.date); if(filtered.length!==EXPENSES.length) changed = true; EXPENSES = filtered; }
+  return changed;
 }
+/* Run pruneOldData() and, if it actually removed anything, immediately re-render and
+   push the cleaned-up data back to localStorage + Firebase so the 35-day limit is
+   enforced everywhere the data lives, not just in this browser tab. */
+function pruneAndPersistIfChanged(){
+  if(pruneOldData()){
+    renderCategories(); renderMenu(); renderTicket();
+    saveAll();
+  }
+}
+/* Re-check every hour in case the app/tab is left open for a long time — this way the
+   35-day cutoff still bites day by day instead of only at the moment the page is opened. */
+setInterval(pruneAndPersistIfChanged, 60*60*1000);
 
 /* ===== Export last 30 days as PDF (backup before auto-delete) ===== */
 function exportLast30DaysPDF(){
@@ -2500,7 +2527,12 @@ function loadAll(){
       if(!ref) return;
       ref.once('value').then(snap=>{
         const data = snap.val();
-        if(data){ applyLoadedData(data); renderCategories(); renderMenu(); renderTicket(); }
+        if(data){
+          applyLoadedData(data);
+          pruneOldData();
+          renderCategories(); renderMenu(); renderTicket();
+          saveAll();
+        }
         attachCloudListener();
       }).catch(()=>{});
     }).catch(()=>{});
