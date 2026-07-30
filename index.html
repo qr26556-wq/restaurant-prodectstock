@@ -394,8 +394,27 @@ body[data-theme="dark"]{
 .fauxcode .qr i{background:#1c1509;}
 .fauxcode .qr i.off{background:transparent;}
 .fauxcode small{color:#5a4f3c;font-size:9px;}
+
+/* ===== print: only the visible receipt-style content prints, nothing else ===== */
+@media print {
+  body * { visibility: hidden !important; }
+  .overlay.show .receipt, .overlay.show .receipt *,
+  .overlay.show #kotBody, .overlay.show #kotBody *,
+  .overlay.show #splitPreview, .overlay.show #splitPreview * {
+    visibility: visible !important;
+  }
+  .overlay.show .receipt, .overlay.show #kotBody, .overlay.show #splitPreview {
+    position: absolute !important; top: 0; left: 0; width: 100%;
+    background: #fff !important; color: #000 !important;
+  }
+  .overlay { position: static !important; background: none !important; }
+  .overlay .modal { box-shadow: none !important; border: none !important; position: static !important; max-height: none !important; overflow: visible !important; }
+  .overlay .modal > *:not(.receipt):not(#kotBody):not(#splitPreview) { display: none !important; }
+}
 </style>
 <!-- Optional cloud sync: only used if you fill in firebaseConfig + set a Sync Code in Settings. App works fully offline without this. -->
+<!-- jsPDF for "Download PDF" in Reports — small, cached, non-blocking (defer) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <!-- Firebase SDK loads dynamically at runtime (only when Cloud Sync / Phone OTP is actually used) — see loadFirebaseSDK() in the main script. This keeps the whole app working even if that CDN is unreachable or blocked (e.g. inside restrictive preview sandboxes). -->
 </head>
 <body>
@@ -500,13 +519,14 @@ body[data-theme="dark"]{
   <div class="modal">
     <h3>Take payment</h3>
     <div class="sub">Choose a payment method to complete this order</div>
-    <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+    <div id="payButtonsRow" style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Cash')">💵 Cash</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Card')">💳 Card</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('JazzCash')">📱 JazzCash</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('EasyPaisa')">📱 EasyPaisa</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Credit')">🧾 Credit (Pay Later)</button>
     </div>
+    <div class="sub" id="payProcessingNote" style="display:none;color:var(--amber);">Processing payment…</div>
     <button class="modal-close" onclick="closeModal('payOverlay')">Cancel</button>
   </div>
 </div>
@@ -625,7 +645,11 @@ body[data-theme="dark"]{
 <div class="overlay" id="receiptOverlay">
   <div class="modal">
     <div class="receipt" id="receiptBody"></div>
-    <button class="modal-close" onclick="closeModal('receiptOverlay')">Close · New Order</button>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn btn-hold" style="flex:1;min-width:100px;" onclick="closeModal('receiptOverlay')">Close · New Order</button>
+      <button class="btn btn-pay" style="flex:1;min-width:100px;" onclick="printReceipt()">🖨 Print</button>
+      <button class="btn btn-pay" style="flex:1;min-width:100px;" onclick="downloadReceiptPDF()">⬇ PDF</button>
+    </div>
   </div>
 </div>
 
@@ -689,8 +713,13 @@ body[data-theme="dark"]{
 
 <div class="overlay" id="reportsOverlay">
   <div class="modal admin-modal">
-    <h3>Reports &amp; Dashboard</h3>
-    <div class="sub">Live figures computed from today's orders and activity</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+      <div>
+        <h3 style="margin-bottom:2px;">Reports &amp; Dashboard</h3>
+        <div class="sub">Live figures computed from today's orders and activity</div>
+      </div>
+      <button class="btn btn-pay" style="white-space:nowrap;padding:8px 12px;" onclick="downloadReportPDF()">⬇ PDF</button>
+    </div>
     <div class="tabs-row" id="reportsTabs">
       <button data-tab="dashboard" onclick="switchReportsTab('dashboard')">Dashboard</button>
       <button data-tab="daylog" onclick="switchReportsTab('daylog')">Day Log</button>
@@ -936,6 +965,7 @@ let state = {
   mergeMode:false,
   mergeFrom:null,
   idleTimer:null,
+  processingPayment:false,
 };
 
 function fmt(n){ return CURRENCIES[state.currency].symbol + n.toFixed(2); }
@@ -1249,15 +1279,31 @@ function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 /* payment */
 function openPayModal(){
   if(document.getElementById('payBtn').disabled) return;
+  state.processingPayment = false;
+  document.querySelectorAll('#payButtonsRow button').forEach(b=>b.disabled = false);
+  const note = document.getElementById('payProcessingNote');
+  if(note) note.style.display = 'none';
   document.getElementById('payOverlay').classList.add('show');
 }
 function finalizePayment(method){
+  if(state.processingPayment) return; // guard against double-click / duplicate orders
+  state.processingPayment = true;
+  document.querySelectorAll('#payButtonsRow button').forEach(b=>b.disabled = true);
+  const note = document.getElementById('payProcessingNote');
+  if(note) note.style.display = 'block';
+
   const {subtotal, discount, tax, total} = calcTotals();
   const lines = cartLines();
   const now = new Date();
 
+  if(method==='Credit' && !state.customer){
+    flashToast('Select a customer first for Pay Later / Credit');
+    state.processingPayment = false;
+    document.querySelectorAll('#payButtonsRow button').forEach(b=>b.disabled = false);
+    if(note) note.style.display = 'none';
+    return;
+  }
   if(method==='Credit'){
-    if(!state.customer){ flashToast('Select a customer first for Pay Later / Credit'); return; }
     const c = SAVED_CUSTOMERS.find(x=>x.phone===state.customer.phone);
     if(c) c.credit = (c.credit||0) + total;
   }
@@ -1290,6 +1336,9 @@ function finalizePayment(method){
   renderReceiptFor(ORDERS[ORDERS.length-1]);
   closeModal('payOverlay');
   document.getElementById('receiptOverlay').classList.add('show');
+  state.processingPayment = false;
+  document.querySelectorAll('#payButtonsRow button').forEach(b=>b.disabled = false);
+  if(note) note.style.display = 'none';
   // reset order after payment
   if(state.table){ const t = TABLES.find(t=>t.n===state.table); if(t) t.occupied=false; delete HELD['T'+state.table]; }
   state.cart = {}; state.discountPct = 0; state.table = null; state.customer = null; state.delivery = null;
@@ -1304,6 +1353,25 @@ function fauxcodeHTML(orderId){
   let qr = '';
   for(let i=0;i<81;i++){ qr += `<i class="${((digits.charCodeAt(i%digits.length)+i)%2)?'':'off'}"></i>`; }
   return `<div class="fauxcode"><div class="bars">${bars}</div><small>${orderId}</small><div class="qr">${qr}</div><small>Scan-style code · visual only</small></div>`;
+}
+function printReceipt(){ window.print(); }
+function downloadReceiptPDF(){
+  if(typeof window.jspdf === 'undefined'){ flashToast('PDF tool still loading — try again in a moment'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:[80, 200] }); // narrow receipt-style page
+  let y = 10;
+  const body = document.getElementById('receiptBody');
+  const lines = Array.from(body.children).map(el=>el.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
+  doc.setFontSize(9);
+  lines.forEach(text=>{
+    const wrapped = doc.splitTextToSize(text, 70);
+    wrapped.forEach(l=>{
+      if(y > 190){ doc.addPage([80,200]); y = 10; }
+      doc.text(l, 5, y);
+      y += 5;
+    });
+  });
+  doc.save('receipt-' + Date.now() + '.pdf');
 }
 function renderReceiptFor(order){
   document.getElementById('receiptBody').innerHTML = `
@@ -1620,9 +1688,15 @@ function renderHistoryList(){
       <div class="meta">${new Date(o.time).toLocaleString()} · ${o.method} · <span class="status-pill ${o.status==='refunded'?'refund':'done'}">${o.status}</span></div>
       <div class="btns">
         <button onclick="reprintOrder('${o.id}')">🖨 Reprint</button>
+        <button onclick="downloadOrderPDF('${o.id}')">⬇ PDF</button>
         ${o.status!=='refunded'?`<button onclick="refundOrder('${o.id}')">↩ Refund</button>`:''}
       </div>
     </div>`).join('');
+}
+function downloadOrderPDF(id){
+  const o = ORDERS.find(x=>x.id===id); if(!o) return;
+  renderReceiptFor(o);
+  downloadReceiptPDF();
 }
 function reprintOrder(id){
   const o = ORDERS.find(x=>x.id===id); if(!o) return;
@@ -1649,7 +1723,43 @@ function openReportsModal(tab){
   switchReportsTab(tab||'dashboard');
   document.getElementById('reportsOverlay').classList.add('show');
 }
+function downloadReportPDF(){
+  if(typeof window.jspdf === 'undefined'){ flashToast('PDF tool still loading — try again in a moment'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const tabLabel = document.querySelector(`#reportsTabs button[data-tab="${currentReportsTab}"]`);
+  let y = 18;
+  doc.setFontSize(16); doc.text(state.shopName, 14, y); y += 7;
+  doc.setFontSize(11);
+  doc.text((tabLabel ? tabLabel.textContent : 'Report') + ' Report', 14, y); y += 6;
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('Generated ' + new Date().toLocaleString(), 14, y); y += 8;
+  doc.setDrawColor(200); doc.line(14, y, 196, y); y += 6;
+  doc.setTextColor(30); doc.setFontSize(10);
+
+  const body = document.getElementById('reportsBody');
+  const rows = body.querySelectorAll('.report-row, .dash-card, .hist-row, .ai-note');
+  if(rows.length===0){
+    doc.text('No data for this report yet.', 14, y);
+  } else {
+    rows.forEach(r=>{
+      const text = r.textContent.replace(/\s+/g,' ').trim();
+      if(!text) return;
+      const lines = doc.splitTextToSize(text, 180);
+      lines.forEach(line=>{
+        if(y > 280){ doc.addPage(); y = 18; }
+        doc.text(line, 14, y);
+        y += 6;
+      });
+    });
+  }
+  const filename = (state.shopName || 'shop').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '-' + currentReportsTab + '-' + Date.now() + '.pdf';
+  doc.save(filename);
+  logActivity(`Downloaded PDF report: ${currentReportsTab}`);
+}
+let currentReportsTab = 'dashboard';
 function switchReportsTab(tab){
+  currentReportsTab = tab;
   document.querySelectorAll('#reportsTabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const body = document.getElementById('reportsBody');
   const completed = ORDERS.filter(o=>o.status==='completed');
