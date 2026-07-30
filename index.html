@@ -431,6 +431,8 @@ body[data-theme="dark"]{
   <div class="gate-card">
     <div class="mark">W</div>
     <h3 id="loginTitle">Sign in</h3>
+    <button class="btn btn-pay" style="width:100%;margin:10px 0 4px;" onclick="loginWithGoogleAtGate()">🔵 Sign in with Google (Owner)</button>
+    <div class="sub" id="gateOrDivider" style="text-align:center;margin:8px 0;">— or —</div>
     <div class="sub" id="loginSub">Pick your name, then enter your PIN</div>
     <div class="staff-pick" id="staffPick"></div>
     <div class="pin-dots" id="pinDots"></div>
@@ -751,6 +753,10 @@ body[data-theme="dark"]{
   <div class="modal">
     <h3>Settings</h3>
     <div class="sub" id="settingsWho"></div>
+    <div class="field" id="installAppField" style="display:none;">
+      <button class="btn btn-pay" style="width:100%;" onclick="installApp()">📲 Install App on This Device</button>
+      <div class="sub" id="installStatus" style="margin-top:4px;"></div>
+    </div>
     <div class="field"><label>🔐 Owner Login (Google or Email) — your shop data follows your account on any device</label>
       <div id="ownerLinkedBox" style="display:none;" class="sub"></div>
       <div id="ownerLoginBox">
@@ -2115,6 +2121,24 @@ function signInWithGoogle(){
       .catch(err=>{ flashToast('Google sign-in failed: ' + (err.message||err.code||'')); });
   });
 }
+function loginWithGoogleAtGate(){
+  initFirebase().then(ok=>{
+    if(!ok){ flashToast('Cloud not configured yet — see Settings for setup notes'); return; }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).then(res=>{
+      const user = res.user;
+      afterOwnerSignIn(user); // loads/creates this owner's shop data in the cloud
+      state.loggedIn = {id:'owner_'+user.uid, name: user.displayName || user.email, role:'Admin'};
+      logActivity('Signed in with Google (Owner)');
+      saveAll();
+      document.getElementById('loginGate').classList.add('hide');
+      updateUIForRole();
+      populateWaiterSelect();
+      resetIdleTimer();
+      flashToast(`Welcome, ${user.displayName || user.email}`);
+    }).catch(err=>{ flashToast('Google sign-in failed: ' + (err.message||err.code||'')); });
+  });
+}
 function signUpEmail(){
   const email = document.getElementById('ownerEmail').value.trim();
   const pass = document.getElementById('ownerPassword').value;
@@ -2521,6 +2545,45 @@ renderStaffPick();
 renderPinDots('pinDots');
 renderPinPad('pinPad', loginDigit);
 renderPinPad('lockPinPad', lockDigit);
+/* ===== Install App (Add to Home Screen) ===== */
+let deferredInstallPrompt = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const f = document.getElementById('installAppField');
+  if(f && !isStandalone) f.style.display = 'block';
+});
+window.addEventListener('appinstalled', ()=>{
+  deferredInstallPrompt = null;
+  flashToast('App installed ✅');
+  const f = document.getElementById('installAppField'); if(f) f.style.display='none';
+});
+function installApp(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(choice=>{
+      if(choice.outcome==='accepted') flashToast('Installing…');
+      deferredInstallPrompt = null;
+    });
+    return;
+  }
+  if(isIOS){
+    document.getElementById('installStatus').innerHTML =
+      'On iPhone/iPad: tap the <b>Share</b> button (square with ↑) in Safari, then <b>"Add to Home Screen"</b>.';
+    return;
+  }
+  document.getElementById('installStatus').textContent =
+    'Your browser doesn\'t support one-tap install — use its menu (⋮ or Share) and look for "Add to Home Screen" or "Install App".';
+}
+if(isIOS && !isStandalone){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const f = document.getElementById('installAppField');
+    if(f) f.style.display = 'block';
+  });
+}
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
 }
