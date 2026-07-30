@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>WnO POS</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6a5c">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WnO POS">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
@@ -743,6 +751,20 @@ body[data-theme="dark"]{
   <div class="modal">
     <h3>Settings</h3>
     <div class="sub" id="settingsWho"></div>
+    <div class="field"><label>🔐 Owner Login (Google or Email) — your shop data follows your account on any device</label>
+      <div id="ownerLinkedBox" style="display:none;" class="sub"></div>
+      <div id="ownerLoginBox">
+        <button class="btn btn-pay" style="width:100%;margin-bottom:8px;" onclick="signInWithGoogle()">🔵 Sign in with Google</button>
+        <input id="ownerEmail" placeholder="Email address" type="email">
+        <input id="ownerPassword" placeholder="Password" type="password" style="margin-top:6px;">
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button class="btn btn-hold" style="flex:1;" onclick="signInEmail()">Sign In</button>
+          <button class="btn btn-hold" style="flex:1;" onclick="signUpEmail()">Create Account</button>
+        </div>
+        <button class="btn btn-clear" style="width:100%;margin-top:6px;" onclick="forgotPassword()">Forgot Password?</button>
+      </div>
+      <div class="sub" id="ownerAuthStatus" style="margin:6px 0 0;"></div>
+    </div>
     <div class="field"><label>📱 Shop Account (syncs this device to your other phones)</label>
       <div id="acctLinkedBox" style="display:none;" class="sub"></div>
       <div id="acctStep1">
@@ -760,6 +782,10 @@ body[data-theme="dark"]{
       <input id="syncCodeInput" placeholder="e.g. my-pizza-shop-01">
       <button class="btn btn-hold" style="width:100%;margin-top:6px;" onclick="connectSync()">Connect / Update Sync</button>
       <div class="sub" id="syncStatus" style="margin:6px 0 0;"></div>
+    </div>
+    <div class="field"><label>🗂 Data Export &amp; Retention</label>
+      <div class="sub" style="margin-bottom:6px;">Orders older than 35 days are automatically removed to save space. Export a PDF backup of the last 30 days before that happens.</div>
+      <button class="btn btn-hold" style="width:100%;" onclick="exportLast30DaysPDF()">⬇ Download Last 30 Days (PDF)</button>
     </div>
     <div class="field"><label>Shop / Brand Name</label>
       <input id="shopNameInput" placeholder="Your shop name">
@@ -1908,6 +1934,7 @@ function openSettingsModal(){
   document.getElementById('overflowMenu').classList.remove('show');
   if(!hasPermission('settings')){ flashToast('Settings requires Admin role'); return; }
   document.getElementById('settingsWho').textContent = state.loggedIn ? `Signed in as ${state.loggedIn.name} (${state.loggedIn.role})` : '';
+  initFirebase().then(ok=>{ if(ok) renderOwnerAccountBox(firebase.auth().currentUser); });
   document.getElementById('langSelect').value = state.lang;
   document.getElementById('shopNameInput').value = state.shopName;
   document.getElementById('syncCodeInput').value = state.syncCode;
@@ -2047,7 +2074,129 @@ function attachCloudListener(){
     if(statusEl) statusEl.textContent = '🔄 Live sync connected — code: ' + state.syncCode;
   }).catch(()=>{});
 }
-/* ===== Start / End Day (register open-close with cash reconciliation) ===== */
+/* ===== Owner Login (Google / Email) — ties this device's data to the owner's account, not just a manual code.
+   Requires enabling "Google" and "Email/Password" under Firebase Console → Authentication → Sign-in method. ===== */
+function ownerCodeFromUid(uid){ return 'owner_' + uid; }
+function afterOwnerSignIn(user){
+  state.syncCode = ownerCodeFromUid(user.uid);
+  cloudListenerAttached = false;
+  const statusEl = document.getElementById('ownerAuthStatus');
+  if(statusEl) statusEl.textContent = 'Connecting your shop data…';
+  cloudRef().then(ref=>{
+    if(!ref) return;
+    ref.once('value').then(snap=>{
+      const data = snap.val();
+      if(data){ applyLoadedData(data); renderCategories(); renderMenu(); renderTicket(); flashToast('Welcome back — your shop data loaded'); }
+      else { saveAll(); flashToast('New shop account created'); }
+      attachCloudListener();
+      renderOwnerAccountBox(user);
+    }).catch(()=>{ if(statusEl) statusEl.textContent = '⚠️ Could not reach the cloud database.'; });
+  });
+}
+function renderOwnerAccountBox(user){
+  const box = document.getElementById('ownerLinkedBox');
+  const loginBox = document.getElementById('ownerLoginBox');
+  if(!box || !loginBox) return;
+  if(user){
+    box.style.display = 'block';
+    box.innerHTML = `✅ Signed in as ${user.email || user.displayName || user.uid} <button class="icon-btn" onclick="signOutOwner()" style="margin-left:8px;">Sign out</button>`;
+    loginBox.style.display = 'none';
+  } else {
+    box.style.display = 'none';
+    loginBox.style.display = 'block';
+  }
+}
+function signInWithGoogle(){
+  initFirebase().then(ok=>{
+    if(!ok){ flashToast('Cloud not configured yet'); return; }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider)
+      .then(res=> afterOwnerSignIn(res.user))
+      .catch(err=>{ flashToast('Google sign-in failed: ' + (err.message||err.code||'')); });
+  });
+}
+function signUpEmail(){
+  const email = document.getElementById('ownerEmail').value.trim();
+  const pass = document.getElementById('ownerPassword').value;
+  if(!email || !pass){ flashToast('Enter email and password'); return; }
+  initFirebase().then(ok=>{
+    if(!ok){ flashToast('Cloud not configured yet'); return; }
+    firebase.auth().createUserWithEmailAndPassword(email, pass)
+      .then(res=> afterOwnerSignIn(res.user))
+      .catch(err=>{ flashToast('Could not create account: ' + (err.message||err.code||'')); });
+  });
+}
+function signInEmail(){
+  const email = document.getElementById('ownerEmail').value.trim();
+  const pass = document.getElementById('ownerPassword').value;
+  if(!email || !pass){ flashToast('Enter email and password'); return; }
+  initFirebase().then(ok=>{
+    if(!ok){ flashToast('Cloud not configured yet'); return; }
+    firebase.auth().signInWithEmailAndPassword(email, pass)
+      .then(res=> afterOwnerSignIn(res.user))
+      .catch(err=>{ flashToast('Sign-in failed: ' + (err.message||err.code||'')); });
+  });
+}
+function forgotPassword(){
+  const email = document.getElementById('ownerEmail').value.trim();
+  if(!email){ flashToast('Type your email above first'); return; }
+  initFirebase().then(ok=>{
+    if(!ok){ flashToast('Cloud not configured yet'); return; }
+    firebase.auth().sendPasswordResetEmail(email)
+      .then(()=> flashToast('Password reset email sent'))
+      .catch(err=>{ flashToast('Could not send reset email: ' + (err.message||err.code||'')); });
+  });
+}
+function signOutOwner(){
+  initFirebase().then(ok=>{
+    if(ok){ firebase.auth().signOut().catch(()=>{}); }
+    renderOwnerAccountBox(null);
+    flashToast('Signed out — data stays local now');
+  });
+}
+function checkOwnerLoginOnLoad(){
+  initFirebase().then(ok=>{
+    if(!ok) return;
+    firebase.auth().onAuthStateChanged(user=>{
+      if(user) afterOwnerSignIn(user);
+      renderOwnerAccountBox(user);
+    });
+  });
+}
+
+/* ===== Data Retention: auto-remove records older than 35 days, keep app light ===== */
+const DATA_RETENTION_DAYS = 35;
+function pruneOldData(){
+  const cutoff = Date.now() - DATA_RETENTION_DAYS*24*60*60*1000;
+  const keepByTime = (arr, getTime) => arr.filter(x=>{ const t = getTime(x); return !t || new Date(t).getTime() >= cutoff; });
+  if(Array.isArray(ORDERS)) ORDERS = keepByTime(ORDERS, o=>o.time);
+  if(Array.isArray(ACTIVITY_LOG)){ const filtered = keepByTime(ACTIVITY_LOG, a=>a.time); ACTIVITY_LOG.length=0; ACTIVITY_LOG.push(...filtered); }
+  if(Array.isArray(DAY_LOGS)){ const filtered = keepByTime(DAY_LOGS, d=>d.closedAt||d.openedAt); DAY_LOGS = filtered; }
+  if(Array.isArray(PURCHASES)){ const filtered = keepByTime(PURCHASES, p=>p.date); PURCHASES = filtered; }
+}
+
+/* ===== Export last 30 days as PDF (backup before auto-delete) ===== */
+function exportLast30DaysPDF(){
+  if(typeof window.jspdf === 'undefined'){ flashToast('PDF tool still loading — try again in a moment'); return; }
+  const cutoff = Date.now() - 30*24*60*60*1000;
+  const recent = (ORDERS||[]).filter(o=> new Date(o.time).getTime() >= cutoff);
+  if(recent.length===0){ flashToast('No orders in the last 30 days'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 14;
+  doc.setFontSize(14); doc.text(`${state.shopName} — Last 30 Days`, 14, y); y+=8;
+  doc.setFontSize(9);
+  let totalSum = 0;
+  recent.forEach(o=>{
+    if(y > 280){ doc.addPage(); y = 14; }
+    const line = `${o.id}  ${new Date(o.time).toLocaleString()}  ${o.method}  ${o.status}  ${fmt(o.total)}`;
+    doc.text(line, 14, y); y += 6;
+    if(o.status!=='refunded') totalSum += o.total;
+  });
+  y += 4; doc.setFontSize(11); doc.text(`Total (excl. refunds): ${fmt(totalSum)}`, 14, y);
+  doc.save(`${state.shopName.replace(/\s+/g,'_')}_last30days.pdf`);
+  flashToast('PDF downloaded');
+}
 function isDayOpen(){ const last = DAY_LOGS[DAY_LOGS.length-1]; return !!(last && !last.closedAt); }
 function openDayModal(){
   document.getElementById('overflowMenu').classList.remove('show');
@@ -2357,6 +2506,8 @@ try{
   if(phone) state.syncCode = phone.replace(/[^0-9]/g,'');
 }catch(e){}
 loadAll();
+pruneOldData();
+checkOwnerLoginOnLoad();
 renderCategories();
 renderMenu();
 renderTicket();
@@ -2370,6 +2521,9 @@ renderStaffPick();
 renderPinDots('pinDots');
 renderPinPad('pinPad', loginDigit);
 renderPinPad('lockPinPad', lockDigit);
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>
