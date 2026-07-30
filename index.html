@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>WnO POS</title>
+<title>Restaurant In&amp;Out</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f6a5c">
 <link rel="icon" href="icon-192.png">
@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="WnO POS">
+<meta name="apple-mobile-web-app-title" content="Restaurant In&amp;Out">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
@@ -46,24 +46,33 @@ button{font-family:inherit;cursor:pointer;}
 .app{
   display:grid;
   grid-template-columns:76px 1fr 340px;
-  grid-template-rows:56px 1fr;
+  grid-template-rows:auto 1fr;
   height:100vh;
+  height:100dvh;
 }
 @media (max-width:900px){
-  .app{grid-template-columns:64px 1fr;grid-template-rows:56px 1fr auto;}
+  .app{grid-template-columns:64px 1fr;grid-template-rows:auto 1fr auto;}
   .order-panel{grid-column:1/3;grid-row:3;max-height:46vh;}
 }
 
 .topbar{
   grid-column:1/4;
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 18px;
+  padding:12px 18px;
+  padding-top:calc(12px + env(safe-area-inset-top, 0px));
+  min-height:56px;
   background:var(--surface);
   border-bottom:1px solid var(--line);
   box-shadow:var(--shadow);
   position:relative;z-index:5;
 }
-@media (max-width:900px){.topbar{grid-column:1/3;}}
+@media (max-width:900px){.topbar{grid-column:1/3;flex-wrap:wrap;row-gap:8px;padding-bottom:10px;}}
+@media (max-width:600px){
+  .topbar{padding-left:12px;padding-right:12px;}
+  .order-type-toggle{order:3;width:100%;justify-content:space-between;}
+  .top-right{order:2;flex-wrap:wrap;row-gap:6px;justify-content:flex-end;}
+  .waiter-select{max-width:110px;}
+}
 .brand{display:flex;align-items:center;gap:10px;}
 .brand .mark{
   width:28px;height:28px;border-radius:6px;
@@ -452,7 +461,7 @@ body[data-theme="dark"]{
 
 <div class="app">
   <div class="topbar">
-    <div class="brand"><div class="mark" id="brandMark">W</div><div class="name" id="brandName">WnO POS</div></div>
+    <div class="brand"><div class="mark" id="brandMark">R</div><div class="name" id="brandName">Restaurant In&amp;Out</div></div>
     <div class="order-type-toggle" id="orderTypeToggle">
       <button data-type="Dine-in" class="active">Dine-in</button>
       <button data-type="Takeout">Takeout</button>
@@ -528,13 +537,20 @@ body[data-theme="dark"]{
 <div class="overlay" id="payOverlay">
   <div class="modal">
     <h3>Take payment</h3>
-    <div class="sub">Choose a payment method to complete this order</div>
+    <div class="sub">Total due: <b id="payModalTotal"></b></div>
     <div id="payButtonsRow" style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-      <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Cash')">💵 Cash</button>
+      <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="openCashTendered()">💵 Cash</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Card')">💳 Card</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('JazzCash')">📱 JazzCash</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('EasyPaisa')">📱 EasyPaisa</button>
       <button class="btn btn-hold" style="flex:1;min-width:80px;" onclick="finalizePayment('Credit')">🧾 Credit (Pay Later)</button>
+    </div>
+    <div id="cashTenderedBox" style="display:none;border:1px dashed var(--line);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <label style="display:block;font-size:11px;color:var(--ink-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;">Cash received from customer</label>
+      <input id="cashTenderedInput" type="number" inputmode="decimal" placeholder="e.g. 1000" oninput="updateChangeDue()" style="width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:6px;font-family:inherit;font-size:15px;">
+      <div class="quick-cash-row" style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;" id="quickCashRow"></div>
+      <div class="sub" id="changeDueLine" style="margin-top:8px;font-size:14px;"></div>
+      <button class="btn btn-pay" style="width:100%;margin-top:8px;" id="confirmCashBtn" onclick="finalizePayment('Cash')" disabled>Confirm Cash Payment</button>
     </div>
     <div class="sub" id="payProcessingNote" style="display:none;color:var(--amber);">Processing payment…</div>
     <button class="modal-close" onclick="closeModal('payOverlay')">Cancel</button>
@@ -984,7 +1000,7 @@ let state = {
   delivery:null,
   currency:'USD',
   waiter:'',
-  shopName:'WnO POS',
+  shopName:'Restaurant In&Out',
   syncCode:'',
   _lastSavedAt:null,
   loggedIn:null,
@@ -1359,7 +1375,45 @@ function openPayModal(){
   document.querySelectorAll('#payButtonsRow button').forEach(b=>b.disabled = false);
   const note = document.getElementById('payProcessingNote');
   if(note) note.style.display = 'none';
+  const {total} = calcTotals();
+  document.getElementById('payModalTotal').textContent = fmt(total);
+  document.getElementById('cashTenderedBox').style.display = 'none';
+  document.getElementById('cashTenderedInput').value = '';
+  document.getElementById('changeDueLine').textContent = '';
+  document.getElementById('confirmCashBtn').disabled = true;
   document.getElementById('payOverlay').classList.add('show');
+}
+function openCashTendered(){
+  const {total} = calcTotals();
+  document.getElementById('cashTenderedBox').style.display = 'block';
+  // quick-pick common note amounts at/above the total
+  const notes = [total, ...[100,200,500,1000,5000].filter(n=>n>=total)];
+  const uniqueSorted = [...new Set(notes.map(n=>Math.ceil(n)))].sort((a,b)=>a-b).slice(0,5);
+  document.getElementById('quickCashRow').innerHTML = uniqueSorted.map(n=>
+    `<button class="btn btn-hold" style="flex:1;min-width:60px;padding:6px;" onclick="setCashTendered(${n})">${fmt(n)}</button>`
+  ).join('');
+  document.getElementById('cashTenderedInput').focus();
+}
+function setCashTendered(amount){
+  document.getElementById('cashTenderedInput').value = amount;
+  updateChangeDue();
+}
+function updateChangeDue(){
+  const {total} = calcTotals();
+  const received = parseFloat(document.getElementById('cashTenderedInput').value) || 0;
+  const line = document.getElementById('changeDueLine');
+  const btn = document.getElementById('confirmCashBtn');
+  if(received <= 0){ line.textContent = ''; btn.disabled = true; return; }
+  if(received < total){
+    line.innerHTML = `⚠️ Short by <b style="color:var(--red);">${fmt(total-received)}</b>`;
+    btn.disabled = true;
+  } else {
+    const change = received - total;
+    line.innerHTML = change > 0
+      ? `Change to return: <b style="color:var(--green);font-size:16px;">${fmt(change)}</b>`
+      : `Exact amount — no change due ✅`;
+    btn.disabled = false;
+  }
 }
 function finalizePayment(method){
   if(state.processingPayment) return; // guard against double-click / duplicate orders
@@ -1400,11 +1454,14 @@ function finalizePayment(method){
   }
 
   const orderId = 'ORD-' + (1000+ORDERS.length+1);
+  const cashReceived = method==='Cash' ? (parseFloat(document.getElementById('cashTenderedInput').value)||total) : null;
+  const changeGiven = method==='Cash' ? Math.max(0, cashReceived - total) : null;
   ORDERS.push({
     id: orderId, time: now.toISOString(), table: state.table, orderType: state.orderType,
     waiter: state.waiter, customer: state.customer ? state.customer.name : null,
     lines: lines.map(l=>({id:l.id,name:l.name,qty:l.qty,price:l.price,lineTotal:l.lineTotal})),
-    subtotal, discount, tax, total, method, status:'completed'
+    subtotal, discount, tax, total, method, status:'completed',
+    cashReceived, changeGiven
   });
   logActivity(`Payment taken · ${orderId} · ${fmt(total)} · ${method}`);
   saveAll();
@@ -1462,6 +1519,9 @@ function renderReceiptFor(order){
     ${order.discount>0?`<div class="rline"><span>Discount</span><span>−${fmt(order.discount)}</span></div>`:''}
     <div class="rline"><span>Tax</span><span>${fmt(order.tax)}</span></div>
     <div class="rline grand"><span>Total (${order.method})${order.status==='refunded'?' · REFUNDED':''}</span><span>${fmt(order.total)}</span></div>
+    ${order.method==='Cash' && order.cashReceived!=null ? `
+    <div class="rline"><span>Cash Received</span><span>${fmt(order.cashReceived)}</span></div>
+    <div class="rline"><span>Change Returned</span><span>${fmt(order.changeGiven||0)}</span></div>` : ''}
     <div class="r-foot">Thank you for dining with us!<br>Please come again.</div>
     ${fauxcodeHTML(order.id)}
   `;
@@ -2487,7 +2547,7 @@ function attemptLogin(){
   populateWaiterSelect();
   resetIdleTimer();
   flashToast(`Welcome, ${staff.name}`);
-  if(state.shopName === 'WnO POS'){
+  if(state.shopName === 'Restaurant In&Out'){
     setTimeout(()=> flashToast('Tip: set your shop name in Settings so it prints on receipts'), 2200);
   }
 }
