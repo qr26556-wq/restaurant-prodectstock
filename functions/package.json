@@ -1,0 +1,10 @@
+{
+  "name": "customer-orders-functions",
+  "description": "Cloud Functions for validating customer orders and notifying shop owners",
+  "private": true,
+  "engines": { "node": "18" },
+  "dependencies": {
+    "firebase-admin": "^11.0.0",
+    "firebase-functions": "^4.0.0"
+  }
+}
