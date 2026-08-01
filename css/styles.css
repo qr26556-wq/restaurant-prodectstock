@@ -194,6 +194,14 @@ label{font-size:12.5px; font-weight:600; color:var(--ink-soft); display:block; m
 .auth-tabs{display:flex; gap:6px; margin-bottom:18px; background:var(--paper-dim); padding:4px; border-radius:9px}
 .auth-tabs button{flex:1; padding:8px; border:none; background:transparent; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; color:var(--ink-soft)}
 .auth-tabs button.active{background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.auth-row{display:flex; justify-content:flex-end; margin:-4px 0 14px}
+.link-btn{background:none; border:none; padding:0; color:var(--ember); font-size:12.5px; font-weight:600; cursor:pointer}
+.link-btn:hover{text-decoration:underline}
+.auth-divider{display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--ink-soft); font-size:12px}
+.auth-divider::before,.auth-divider::after{content:""; flex:1; height:1px; background:var(--paper-dim)}
+.btn-google{background:#fff; border:1px solid var(--paper-dim); color:var(--ink); display:flex; align-items:center; justify-content:center; gap:10px}
+.btn-google:hover{background:var(--paper-dim)}
+.hidden{display:none !important}
 
 /* ---------- POS ---------- */
 .pos-wrap{display:grid; grid-template-columns:1fr 360px; gap:16px; align-items:start}

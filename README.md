@@ -21,7 +21,10 @@ Data lives in Firestore, in real time, under: `users`, `categories`,
 ## 1. Set up Firebase
 
 1. In the [Firebase Console](https://console.firebase.google.com), open your
-   project → **Build → Authentication → Sign-in method** → enable **Email/Password**.
+   project → **Build → Authentication → Sign-in method** → enable **Email/Password**
+   (this also turns on the "Forgot password" reset-email flow). If you want the
+   **Continue with Google** button on the login page to work, enable **Google**
+   as a sign-in provider too, and set a support email for it.
 2. **Build → Firestore Database** → Create database (production mode is fine —
    the rules below lock it down).
 3. **Project settings → General → Your apps** → copy the config object into
@@ -53,6 +56,12 @@ to be created by hand, once:
    active: true              (boolean)
    ```
 4. Sign in on `login.html` with the **Admin** tab.
+
+Note: signing in with Google works the same way — it only grants access once
+a `users/{uid}` profile exists for that account. Someone can tap "Continue
+with Google" and authenticate, but without a matching profile they'll just
+see "No staff profile is linked to this account yet." No one can grant
+themselves access, admin or otherwise, just by signing up.
 
 After that, Staff Management (Phase 2, see below) will let admins create
 cashier logins from the UI instead of the console.
