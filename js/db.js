@@ -199,6 +199,24 @@ const DB = (() => {
   // that need the raw, restaurant-scoped orders collection reference.
   function ordersRef() { return col.orders; }
 
+  /* ---------------- Staff (users) management ---------------- */
+  function listenStaffUsers(restaurantId, cb) {
+    return top.users.where('restaurantId', '==', restaurantId).onSnapshot(
+      snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        cb(list);
+      },
+      err => console.error('staff users listen', err)
+    );
+  }
+  function updateUserRole(uid, role) { return top.users.doc(uid).update({ role }); }
+  function setUserActive(uid, active) { return top.users.doc(uid).update({ active }); }
+  // Removing the profile doc revokes all access for that Google account
+  // (their auth account itself still exists, but without a users/{uid}
+  // profile they can no longer sign in to this shop's data at all).
+  function removeStaffProfile(uid) { return top.users.doc(uid).delete(); }
+
   /* ---------------- Staff join codes ----------------
      An admin generates a short code tied to a role. A new staff member
      opens login.html on their own phone, taps "Join with a staff code",
@@ -335,6 +353,7 @@ const DB = (() => {
     getSettings, saveSettings,
     listenOrdersByStatus, listenAllOrders, listenTodayOrders,
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
+    listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
     seedSampleData,
   };

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restpos-shell-v2';
+const CACHE_NAME = 'restpos-shell-v3';
 const SHELL_FILES = [
   'index.html',
   'login.html',
@@ -7,6 +7,8 @@ const SHELL_FILES = [
   'kitchen.html',
   'products.html',
   'orders.html',
+  'staff.html',
+  'settings.html',
   'css/styles.css',
   'js/firebase-config.js',
   'js/common.js',
@@ -17,6 +19,8 @@ const SHELL_FILES = [
   'js/kitchen.js',
   'js/products.js',
   'js/orders.js',
+  'js/staff.js',
+  'js/settings.js',
   'manifest.json',
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',

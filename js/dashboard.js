@@ -5,10 +5,8 @@ let todayOrders = [];
 RESTPOS.guard(['admin', 'manager'], (user) => {
   RESTPOS.renderNav('dashboard', user.role, user.name);
   boot();
-  if (user.role === 'admin') {
-    bootStaffCodes(user);
-  } else {
-    document.getElementById('staffCodesCard')?.remove();
+  if (user.role !== 'admin') {
+    document.getElementById('staffLinkCard')?.remove();
   }
 });
 
@@ -46,56 +44,6 @@ function boot() {
       e.target.disabled = false;
       e.target.textContent = 'Load sample data';
     }
-  });
-}
-
-/* ---------------- Staff join codes (admin only) ---------------- */
-function bootStaffCodes(user) {
-  DB.listenStaffCodes(user.restaurantId, renderStaffCodes);
-
-  document.getElementById('genCodeBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('genCodeBtn');
-    const role = document.getElementById('genCodeRole').value;
-    btn.disabled = true;
-    btn.textContent = 'Generating…';
-    try {
-      const code = await DB.generateStaffCode(role, user.restaurantId, user.uid, user.name);
-      RESTPOS.toast(`Code ${code} ready — share it with the new ${role}.`, 'success');
-    } catch (err) {
-      console.error(err);
-      RESTPOS.toast('Could not generate a code: ' + err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Generate code';
-    }
-  });
-}
-
-function renderStaffCodes(list) {
-  const host = document.getElementById('staffCodesList');
-  if (!host) return;
-  if (!list.length) {
-    host.innerHTML = `<p class="hint">No codes generated yet.</p>`;
-    return;
-  }
-  host.innerHTML = list.map(c => `
-    <div class="receipt-line">
-      <span class="rl-name mono" style="letter-spacing:2px; font-weight:700">${c.id}</span>
-      <span style="text-transform:capitalize; margin-left:10px">${RESTPOS.escapeHtml(c.role)}</span>
-      <span class="rl-fill"></span>
-      ${c.used
-        ? `<span class="stamp stamp-completed">used — ${RESTPOS.escapeHtml(c.usedByName || '')}</span>`
-        : `<span class="stamp stamp-new">unused</span>
-           <button class="icon-btn" title="Delete code" data-del="${c.id}">${RESTPOS.icon('trash')}</button>`
-      }
-    </div>`).join('');
-
-  host.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this unused code?')) return;
-      try { await DB.deleteStaffCode(btn.dataset.del); }
-      catch (err) { RESTPOS.toast('Could not delete: ' + err.message, 'error'); }
-    });
   });
 }
 
