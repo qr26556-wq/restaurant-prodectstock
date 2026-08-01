@@ -1,4 +1,5 @@
-const CACHE_NAME = 'restaurant-inout-v3';
+// 2026 update: bump cache name to ensure users get the latest site assets
+const CACHE_NAME = 'restaurant-inout-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -19,7 +20,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => k !== CACHE_NAME && k.startsWith('restaurant-inout-'))
+          .map((k) => caches.delete(k))
+      )
     ).then(() => self.clients.claim())
   );
 });
