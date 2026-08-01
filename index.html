@@ -25,7 +25,8 @@
       try {
         const snap = await db.collection('users').doc(user.uid).get();
         if (snap.exists && snap.data().active !== false) {
-          window.location.href = snap.data().role === 'admin' ? 'dashboard.html' : 'pos.html';
+          const role = snap.data().role;
+          window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
         } else {
           window.location.href = 'login.html';
         }

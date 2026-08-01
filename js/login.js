@@ -23,7 +23,8 @@ auth.onAuthStateChanged(async (user) => {
   try {
     const snap = await db.collection('users').doc(user.uid).get();
     if (snap.exists && snap.data().active !== false) {
-      window.location.href = snap.data().role === 'admin' ? 'dashboard.html' : 'pos.html';
+      const role = snap.data().role;
+      window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
     }
   } catch (e) { /* stay on login */ }
 });
@@ -47,12 +48,13 @@ async function completeSignIn(user) {
     await auth.signOut();
     return;
   }
-  if (expectedRole === 'admin' && profile.role !== 'admin') {
-    showError('This is a staff/cashier account — use the "Staff / Cashier" tab.');
+  const roleLabels = { admin: 'Admin', manager: 'Manager', cashier: 'Cashier' };
+  if (profile.role !== expectedRole) {
+    showError(`This is a ${roleLabels[profile.role] || profile.role} account — use the "${roleLabels[profile.role] || profile.role}" tab.`);
     await auth.signOut();
     return;
   }
-  window.location.href = profile.role === 'admin' ? 'dashboard.html' : 'pos.html';
+  window.location.href = (profile.role === 'admin' || profile.role === 'manager') ? 'dashboard.html' : 'pos.html';
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -106,33 +108,117 @@ document.getElementById('googleBtn').addEventListener('click', async () => {
   }
 });
 
-// ---- Forgot password ----
+// ---- Create a brand-new, isolated restaurant (self-serve first admin) ----
+document.getElementById('createShopGoogleBtn').addEventListener('click', async () => {
+  hideError();
+  const shopName = document.getElementById('shopName').value.trim();
+  if (!shopName) { showError('Enter your restaurant\'s name.'); return; }
+  const btn = document.getElementById('createShopGoogleBtn');
+  btn.disabled = true;
+  let cred;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    cred = await auth.signInWithPopup(provider);
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false;
+    if (err.code === 'auth/popup-closed-by-user') return;
+    showError('Could not sign in with Google. Please try again.');
+    return;
+  }
+  try {
+    await DB.createRestaurant(shopName, cred.user);
+    RESTPOS.toast('Your restaurant is ready!', 'success');
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Could not create your restaurant. Please try again.');
+    await auth.signOut();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- Join with a staff code (first-time Google sign-in) ----
+document.getElementById('joinGoogleBtn').addEventListener('click', async () => {
+  hideError();
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (!code) { showError('Enter the code your admin gave you.'); return; }
+  const btn = document.getElementById('joinGoogleBtn');
+  btn.disabled = true;
+  let cred;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    cred = await auth.signInWithPopup(provider);
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false;
+    if (err.code === 'auth/popup-closed-by-user') return;
+    showError('Could not sign in with Google. Please try again.');
+    return;
+  }
+  try {
+    const role = await DB.redeemStaffCode(code, cred.user);
+    RESTPOS.toast('Welcome! Your account is ready.', 'success');
+    window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Could not use that code. Please try again.');
+    await auth.signOut();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- Forgot password / Join with code (mutually exclusive panels) ----
 const loginForm = document.getElementById('loginForm');
 const resetForm = document.getElementById('resetForm');
+const joinForm = document.getElementById('joinForm');
+const createShopForm = document.getElementById('createShopForm');
 const googleBtn = document.getElementById('googleBtn');
 const authDivider = document.querySelector('.auth-divider');
 const noAccountHint = document.getElementById('noAccountHint');
+const authTabs = document.querySelector('.auth-tabs');
 
-function showResetForm() {
+function hideAllPanels() {
   hideError();
   loginForm.classList.add('hidden');
   authDivider.classList.add('hidden');
   googleBtn.classList.add('hidden');
   noAccountHint.classList.add('hidden');
+  resetForm.classList.add('hidden');
+  joinForm.classList.add('hidden');
+  createShopForm.classList.add('hidden');
+  authTabs.classList.add('hidden');
+}
+function showResetForm() {
+  hideAllPanels();
   resetForm.classList.remove('hidden');
   document.getElementById('resetEmail').value = document.getElementById('email').value.trim();
 }
+function showJoinForm() {
+  hideAllPanels();
+  joinForm.classList.remove('hidden');
+}
+function showCreateShopForm() {
+  hideAllPanels();
+  createShopForm.classList.remove('hidden');
+}
 function showLoginForm() {
-  hideError();
-  resetForm.classList.add('hidden');
+  hideAllPanels();
   loginForm.classList.remove('hidden');
   authDivider.classList.remove('hidden');
   googleBtn.classList.remove('hidden');
   noAccountHint.classList.remove('hidden');
+  authTabs.classList.remove('hidden');
 }
 
 document.getElementById('forgotBtn').addEventListener('click', showResetForm);
 document.getElementById('backToLoginBtn').addEventListener('click', showLoginForm);
+document.getElementById('showJoinBtn').addEventListener('click', showJoinForm);
+document.getElementById('backFromJoinBtn').addEventListener('click', showLoginForm);
+document.getElementById('showCreateShopBtn').addEventListener('click', showCreateShopForm);
+document.getElementById('backFromCreateShopBtn').addEventListener('click', showLoginForm);
 
 resetForm.addEventListener('submit', async (e) => {
   e.preventDefault();

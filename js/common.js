@@ -31,12 +31,14 @@ const RESTPOS = (() => {
   const icon = (name) => ICONS[name] || '';
 
   const NAV_ITEMS = [
-    { href: 'dashboard.html', key: 'dashboard', label: 'Dashboard', icon: 'dashboard', roles: ['admin'] },
-    { href: 'pos.html', key: 'pos', label: 'POS Billing', icon: 'pos', roles: ['admin', 'cashier'] },
-    { href: 'kitchen.html', key: 'kitchen', label: 'Kitchen (KOT)', icon: 'kitchen', roles: ['admin', 'cashier'] },
-    { href: 'products.html', key: 'products', label: 'Products', icon: 'products', roles: ['admin'] },
-    { href: 'orders.html', key: 'orders', label: 'Orders', icon: 'orders', roles: ['admin', 'cashier'] },
+    { href: 'dashboard.html', key: 'dashboard', label: 'Dashboard', icon: 'dashboard', roles: ['admin', 'manager'] },
+    { href: 'pos.html', key: 'pos', label: 'POS Billing', icon: 'pos', roles: ['admin', 'manager', 'cashier'] },
+    { href: 'kitchen.html', key: 'kitchen', label: 'Kitchen (KOT)', icon: 'kitchen', roles: ['admin', 'manager', 'cashier'] },
+    { href: 'products.html', key: 'products', label: 'Products', icon: 'products', roles: ['admin', 'manager'] },
+    { href: 'orders.html', key: 'orders', label: 'Orders', icon: 'orders', roles: ['admin', 'manager', 'cashier'] },
   ];
+
+  const ROLE_LABELS = { admin: 'Administrator', manager: 'Manager', cashier: 'Cashier' };
 
   function toast(msg, type = 'default') {
     let host = document.getElementById('toastHost');
@@ -91,7 +93,7 @@ const RESTPOS = (() => {
           <div class="mark">R</div>
           <div>
             <div class="name" id="brandName">RESTPOS</div>
-            <div class="role">${role === 'admin' ? 'Administrator' : 'Cashier'}</div>
+            <div class="role">${ROLE_LABELS[role] || role}</div>
           </div>
         </div>
         <nav>${sidebarLinks}</nav>
@@ -108,12 +110,12 @@ const RESTPOS = (() => {
     if (who) who.textContent = userLabel || '';
 
     // fetch restaurant name for brand, if settings loaded later this can be re-set
-    db.collection('settings').doc('general').get().then(doc => {
-      if (doc.exists && doc.data().restaurantName) {
+    DB.getSettings().then(data => {
+      if (data && data.restaurantName) {
         const el = document.getElementById('brandName');
-        if (el) el.textContent = doc.data().restaurantName;
-        window.__settings = doc.data();
+        if (el) el.textContent = data.restaurantName;
       }
+      window.__settings = data || {};
     }).catch(() => {});
   }
 
@@ -143,10 +145,16 @@ const RESTPOS = (() => {
           return;
         }
         if (requiredRoles && !requiredRoles.includes(data.role)) {
-          window.location.href = data.role === 'admin' ? 'dashboard.html' : 'pos.html';
+          window.location.href = (data.role === 'admin' || data.role === 'manager') ? 'dashboard.html' : 'pos.html';
           return;
         }
-        const userDoc = { uid: user.uid, name: data.name || user.email, email: user.email, role: data.role };
+        if (!data.restaurantId) {
+          toast('This account isn\'t linked to a restaurant. Contact an admin.', 'error');
+          setTimeout(logout, 1200);
+          return;
+        }
+        DB.init(data.restaurantId);
+        const userDoc = { uid: user.uid, name: data.name || user.email, email: user.email, role: data.role, restaurantId: data.restaurantId };
         sessionStorage.setItem('restpos_user', JSON.stringify(userDoc));
         callback(userDoc);
       } catch (e) {

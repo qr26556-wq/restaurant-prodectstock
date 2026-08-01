@@ -9,14 +9,31 @@ see [What's next](#whats-next) for what's intentionally not built yet.
 | Page | Who | What it does |
 |---|---|---|
 | `login.html` | everyone | Email/password sign-in via Firebase Auth |
-| `dashboard.html` | admin | Today's sales, orders, low stock, 7-day chart, recent orders |
-| `pos.html` | admin + cashier | Billing screen: categories, cart, dine-in/takeaway/delivery, tables, discount/tax, cash/card/online, hold order, receipt |
-| `kitchen.html` | admin + cashier | Live KOT board: New → Preparing → Ready → Completed |
-| `products.html` | admin | Product CRUD, stock, SKU, categories, low-stock flag |
-| `orders.html` | admin + cashier | Order list, filters, detail view, cancel, status change, print receipt (58mm/80mm) |
+| `dashboard.html` | admin + manager | Today's sales, orders, low stock, 7-day chart, recent orders (staff join-codes panel is admin-only) |
+| `pos.html` | admin + manager + cashier | Billing screen: categories, cart, dine-in/takeaway/delivery, tables, discount/tax, cash/card/online, hold order, receipt |
+| `kitchen.html` | admin + manager + cashier | Live KOT board: New → Preparing → Ready → Completed |
+| `products.html` | admin + manager | Product CRUD, stock, SKU, categories, low-stock flag |
+| `orders.html` | admin + manager + cashier | Order list, filters, detail view, cancel, status change, print receipt (58mm/80mm) |
 
 Data lives in Firestore, in real time, under: `users`, `categories`,
 `products`, `tables`, `orders`, `settings`.
+
+## 0. Multi-tenant: every shop is fully isolated
+
+This build supports **many restaurants on the same Firebase project**, with
+zero data crossover. Each shop is its own `/restaurants/{restaurantId}`
+document; its categories, products, tables, orders and settings all live in
+subcollections underneath that one document. Staff of Restaurant A can never
+read or write a single document belonging to Restaurant B — it's a
+structurally separate branch of the database, enforced by `firestore.rules`,
+not just hidden in the UI.
+
+A brand-new shop owner never touches the Firebase Console at all:
+**`login.html` → "Create your shop"** → enter a restaurant name → sign in
+with their own Google account → they land on their own private Dashboard as
+that shop's first Admin. From there they generate staff join codes (below)
+for everyone else at their restaurant. One Google account can only ever
+belong to one restaurant.
 
 ## 1. Set up Firebase
 
@@ -40,22 +57,35 @@ Data lives in Firestore, in real time, under: `users`, `categories`,
    Or simplest: paste the contents of `firestore.rules` into **Firestore →
    Rules** in the console and click Publish.
 
-## 2. Create your first admin account
+## 2. Create your first admin account (manual fallback)
+
+Normally you don't need this — use **"Create your shop"** on the login page
+instead (see section 0 above), which does all of this for you automatically.
+Use this manual path only if you'd rather not use Google sign-in for the
+very first account, or need to create it directly from the console:
 
 The app never lets a cashier promote themselves, so the very first admin has
 to be created by hand, once:
 
 1. **Authentication → Users → Add user** — create the admin's email/password.
 2. Copy the new user's **UID**.
-3. **Firestore → Start collection** → collection ID `users` → document ID =
-   that UID → add fields:
+3. **Firestore → Start collection** → collection ID `restaurants` → add a
+   document (auto-ID is fine) with fields:
    ```
-   name: "Your Name"        (string)
-   email: "you@restaurant.com"  (string)
-   role: "admin"             (string)
-   active: true              (boolean)
+   name: "Your Restaurant Name"  (string)
+   ownerUid: "<the UID from step 2>"  (string)
    ```
-4. Sign in on `login.html` with the **Admin** tab.
+   Copy this new document's **ID** too — that's your `restaurantId`.
+4. **Firestore → Start collection** → collection ID `users` → document ID =
+   the admin's UID → add fields:
+   ```
+   name: "Your Name"             (string)
+   email: "you@restaurant.com"   (string)
+   role: "admin"                 (string)
+   active: true                  (boolean)
+   restaurantId: "<the restaurant doc ID from step 3>"  (string)
+   ```
+5. Sign in on `login.html` with the **Admin** tab.
 
 Note: signing in with Google works the same way — it only grants access once
 a `users/{uid}` profile exists for that account. Someone can tap "Continue
@@ -63,8 +93,29 @@ with Google" and authenticate, but without a matching profile they'll just
 see "No staff profile is linked to this account yet." No one can grant
 themselves access, admin or otherwise, just by signing up.
 
-After that, Staff Management (Phase 2, see below) will let admins create
-cashier logins from the UI instead of the console.
+## 3. Roles
+
+Three roles: **Admin** (everything, incl. generating staff codes), **Manager**
+(Dashboard, POS, Kitchen, Products, Orders — everything except managing staff
+codes/profiles), and **Cashier** (POS, Kitchen, Orders only).
+
+## 4. Adding the rest of your staff — join codes
+
+Once the first admin exists, everyone else can add themselves with their own
+Google account — no console work per person:
+
+1. Admin signs in → **Dashboard → Staff join codes** → pick a role
+   (Admin / Manager / Cashier) → **Generate code**. A 6-character code appears.
+2. Share that code with the staff member (WhatsApp, SMS, in person).
+3. On their own phone, they open `login.html` → **"Join with a staff code"**
+   → enter the code → **Continue with Google**, using their own account.
+4. Their `users/{uid}` profile is created automatically with the role tied
+   to that code, and the code is marked used so it can't be reused. They're
+   dropped straight onto the Dashboard (admin/manager) or POS (cashier).
+
+Each code works exactly once. Generate a new one per person. This entirely
+replaces the manual "Authentication → Users" + "Firestore → users/{uid}"
+steps above for every staff member *after* the first admin.
 
 ## 3. Try it out
 

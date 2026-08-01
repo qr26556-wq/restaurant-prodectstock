@@ -1,16 +1,64 @@
 /* =========================================================
    DB — Firestore data-access layer
-   Collections: users, categories, products, tables, orders, settings
+   Multi-tenant: every shop is its own /restaurants/{restaurantId}
+   document. Its categories/products/tables/orders/settings live in
+   subcollections underneath it, so one shop's data is a completely
+   separate branch of the database from another's — never the same
+   collection. `users` and `staffCodes` stay top-level (keyed by uid /
+   code) but every doc carries a `restaurantId` so rules can fence them.
+   Call DB.init(restaurantId) once, right after login, before using any
+   of the restaurant-scoped functions below.
    ========================================================= */
 const DB = (() => {
-  const col = {
+  const top = {
     users: db.collection('users'),
-    categories: db.collection('categories'),
-    products: db.collection('products'),
-    tables: db.collection('tables'),
-    orders: db.collection('orders'),
-    settings: db.collection('settings'),
+    staffCodes: db.collection('staffCodes'),
+    restaurants: db.collection('restaurants'),
   };
+  let RID = null;
+  let col = {}; // categories/products/tables/orders/settings — set by init()
+
+  function init(restaurantId) {
+    RID = restaurantId;
+    const shop = top.restaurants.doc(restaurantId);
+    col = {
+      categories: shop.collection('categories'),
+      products: shop.collection('products'),
+      tables: shop.collection('tables'),
+      orders: shop.collection('orders'),
+      settings: shop.collection('settings'),
+    };
+  }
+
+  /* ---------------- Restaurants (shops) ---------------- */
+  // Self-serve "create a brand-new shop": the caller becomes its first
+  // admin. One Google account can only ever own/belong to ONE shop — if
+  // this uid already has a users/{uid} profile, Firestore rules refuse
+  // the write (it becomes an "update", which only an existing admin of
+  // that same shop may do), so we check up front for a friendly message.
+  async function createRestaurant(name, user) {
+    const existing = await top.users.doc(user.uid).get();
+    if (existing.exists) {
+      throw new Error('This Google account is already linked to a restaurant. Sign out and use a different account, or ask your admin for a staff join code instead.');
+    }
+    const restRef = top.restaurants.doc();
+    const batch = db.batch();
+    batch.set(restRef, {
+      name: name || 'My Restaurant',
+      ownerUid: user.uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    batch.set(top.users.doc(user.uid), {
+      name: user.displayName || user.email,
+      email: user.email,
+      role: 'admin',
+      active: true,
+      restaurantId: restRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    return restRef.id;
+  }
 
   /* ---------------- Categories ---------------- */
   function listenCategories(cb) {
@@ -147,6 +195,89 @@ const DB = (() => {
     return col.tables.doc(tableId).update({ status: 'available', currentOrderId: null });
   }
 
+  // Escape hatch for one-off queries (e.g. the dashboard's 7-day chart)
+  // that need the raw, restaurant-scoped orders collection reference.
+  function ordersRef() { return col.orders; }
+
+  /* ---------------- Staff join codes ----------------
+     An admin generates a short code tied to a role. A new staff member
+     opens login.html on their own phone, taps "Join with a staff code",
+     enters the code, and signs in with Google. If the code is valid and
+     unused, their `users/{uid}` profile is created with that role and the
+     code is marked used — all inside one transaction so a code can never
+     be redeemed twice, even if two people try at the same moment. */
+  function genCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
+    let s = '';
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  async function generateStaffCode(role, restaurantId, createdByUid, createdByName) {
+    // avoid (extremely unlikely) collision with an existing code — codes
+    // are globally unique across every restaurant, since a brand-new
+    // joiner looks one up by code alone, before they belong to any shop.
+    let code;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      code = genCode();
+      const existing = await top.staffCodes.doc(code).get();
+      if (!existing.exists) break;
+    }
+    await top.staffCodes.doc(code).set({
+      role, restaurantId, used: false, usedBy: null, usedByName: null, usedAt: null,
+      createdBy: createdByUid, createdByName: createdByName || null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return code;
+  }
+
+  function listenStaffCodes(restaurantId, cb) {
+    return top.staffCodes.where('restaurantId', '==', restaurantId).onSnapshot(
+      snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        cb(list);
+      },
+      err => console.error('staffCodes listen', err)
+    );
+  }
+
+  function deleteStaffCode(code) { return top.staffCodes.doc(code).delete(); }
+
+  // Redeems a code for the currently-signed-in Google user, creating their
+  // staff profile — with the role AND restaurantId carried by the code —
+  // so they land inside the correct, single shop. Throws a plain Error
+  // with a user-facing message on any failure (bad code, already used,
+  // etc.) so the caller can sign the user back out and show it.
+  async function redeemStaffCode(code, user) {
+    const codeRef = top.staffCodes.doc(code);
+    const userRef = top.users.doc(user.uid);
+    return db.runTransaction(async (tx) => {
+      const codeSnap = await tx.get(codeRef);
+      if (!codeSnap.exists) throw new Error('That code doesn\'t look right. Double-check it with your admin.');
+      const codeData = codeSnap.data();
+      if (codeData.used) throw new Error('That code has already been used. Ask your admin for a new one.');
+
+      const userSnap = await tx.get(userRef);
+      if (userSnap.exists) throw new Error('This Google account already has a staff profile — just sign in normally.');
+
+      tx.set(userRef, {
+        name: user.displayName || user.email,
+        email: user.email,
+        role: codeData.role,
+        restaurantId: codeData.restaurantId,
+        active: true,
+        joinedViaCode: code,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(codeRef, {
+        used: true, usedBy: user.uid, usedByName: user.displayName || user.email,
+        usedAt: FieldValue.serverTimestamp(),
+      });
+      return codeData.role;
+    });
+  }
+
   /* ---------------- Seed sample data (admin, one-time) ---------------- */
   async function seedSampleData() {
     const catSnap = await col.categories.limit(1).get();
@@ -197,12 +328,14 @@ const DB = (() => {
   }
 
   return {
+    init, createRestaurant, ordersRef,
     listenCategories, addCategory, updateCategory, deleteCategory,
     listenProducts, addProduct, updateProduct, deleteProduct,
     listenTables, addTable, setTableStatus, deleteTable,
     getSettings, saveSettings,
     listenOrdersByStatus, listenAllOrders, listenTodayOrders,
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
+    generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
     seedSampleData,
   };
 })();
