@@ -1,0 +1,80 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+// (or paste into Firebase Console → Firestore Database → Rules)
+//
+// Model: every authenticated staff member has a matching doc at
+// /users/{uid} with a "role" field of "admin" or "cashier" and an
+// "active" boolean. Admin-only collections/actions check that doc.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isActiveStaff() {
+      return isSignedIn() && myProfile().active != false;
+    }
+    function isAdmin() {
+      return isActiveStaff() && myProfile().role == 'admin';
+    }
+
+    // --- Staff accounts ---
+    // Anyone signed in may read their OWN profile (needed to resolve their
+    // role right after login). Admins may read/write every profile. Nobody
+    // but an admin may create/update/delete a staff profile (prevents a
+    // cashier from promoting themselves).
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // --- Catalog: categories & products ---
+    // Every active staff member needs to read these to run the POS/KOT.
+    // Only admins manage the catalog.
+    match /categories/{id} {
+      allow read: if isActiveStaff();
+      allow write: if isAdmin();
+    }
+    match /products/{id} {
+      allow read: if isActiveStaff();
+      // Cashiers are allowed to update ONLY the stock field (automatic
+      // decrement happens client-side inside the order transaction).
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isActiveStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']));
+    }
+
+    // --- Restaurant tables ---
+    match /tables/{id} {
+      allow read: if isActiveStaff();
+      allow create, delete: if isAdmin();
+      allow update: if isActiveStaff(); // cashiers flip available/occupied while billing
+    }
+
+    // --- Orders ---
+    // Any active staff member can create orders (billing) and update status
+    // (KOT / cancel). Deleting an order is never allowed — cancel instead.
+    match /orders/{id} {
+      allow read: if isActiveStaff();
+      allow create: if isActiveStaff();
+      allow update: if isActiveStaff();
+      allow delete: if false;
+    }
+
+    // --- Settings ---
+    match /settings/{id} {
+      allow read: if isActiveStaff();
+      allow write: if isAdmin();
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

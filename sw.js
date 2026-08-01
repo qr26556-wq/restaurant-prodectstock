@@ -1,40 +1,57 @@
-const CACHE_NAME = 'pos-pwa-v1';
-const FILES_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/manifest.json'
+const CACHE_NAME = 'restpos-shell-v1';
+const SHELL_FILES = [
+  'index.html',
+  'login.html',
+  'dashboard.html',
+  'pos.html',
+  'kitchen.html',
+  'products.html',
+  'orders.html',
+  'css/styles.css',
+  'js/firebase-config.js',
+  'js/common.js',
+  'js/db.js',
+  'js/login.js',
+  'js/dashboard.js',
+  'js/pos.js',
+  'js/kitchen.js',
+  'js/products.js',
+  'js/orders.js',
+  'manifest.json',
+  'assets/icons/icon-192.png',
+  'assets/icons/icon-512.png',
 ];
 
-// Install: cache app shell
-self.addEventListener('install', (evt) => {
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(SHELL_FILES))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate: cleanup old caches
-self.addEventListener('activate', (evt) => {
-  evt.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.map(k => { if (k !== CACHE_NAME) return caches.delete(k); })
-    ))
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(names =>
+      Promise.all(names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: cache-first for app shell, network fallback for others
-self.addEventListener('fetch', (evt) => {
-  if (evt.request.method !== 'GET') return;
-  evt.respondWith(
-    caches.match(evt.request).then(cached => {
+// Cache-first for our own static shell; everything else (Firebase, CDNs) goes
+// straight to the network so live data is never served stale.
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
+
+  event.respondWith(
+    caches.match(event.request).then(cached => {
       if (cached) return cached;
-      return fetch(evt.request).then(resp => {
-        // optionally cache new GET responses (omit large/dynamic)
-        return resp;
-      }).catch(()=> caches.match('/index.html'));
+      return fetch(event.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return res;
+      }).catch(() => cached);
     })
   );
 });

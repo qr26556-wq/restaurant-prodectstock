@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#1B1B18">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+<title>Kitchen — RESTPOS</title>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="navHost"></div>
+    <div class="main">
+      <div class="topbar">
+        <h1>Kitchen Order Tickets</h1>
+        <div class="who" id="whoLabel"></div>
+      </div>
+      <div class="page">
+        <div class="kot-cols">
+          <div>
+            <div class="kot-col-head"><h3>New</h3><span class="badge badge-slate" id="countNew">0</span></div>
+            <div id="colNew"></div>
+          </div>
+          <div>
+            <div class="kot-col-head"><h3>Preparing</h3><span class="badge badge-amber" id="countPreparing">0</span></div>
+            <div id="colPreparing"></div>
+          </div>
+          <div>
+            <div class="kot-col-head"><h3>Ready</h3><span class="badge badge-sage" id="countReady">0</span></div>
+            <div id="colReady"></div>
+          </div>
+          <div>
+            <div class="kot-col-head"><h3>Completed today</h3><span class="badge badge-slate" id="countCompleted">0</span></div>
+            <div id="colCompleted"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/kitchen.js"></script>
+</body>
+</html>

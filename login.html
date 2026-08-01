@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#1B1B18">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+<title>Sign in — RESTPOS</title>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="mark">R</div>
+      <h1>RESTPOS</h1>
+      <p class="sub">Sign in to run the counter.</p>
+
+      <div class="auth-tabs">
+        <button type="button" class="active" data-role="admin">Admin</button>
+        <button type="button" data-role="cashier">Staff / Cashier</button>
+      </div>
+
+      <div class="auth-error" id="authError"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required autocomplete="username" placeholder="you@restaurant.com">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+      </form>
+
+      <p class="hint" style="margin-top:16px">
+        No account yet? Ask an administrator to add you under Staff Management,
+        or see <span class="mono">README.md</span> to create the first admin account.
+      </p>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>
