@@ -60,6 +60,33 @@ exports.validateOrder = functions.database.ref('/customer_orders/{shop}/{orderId
       console.warn('Could not write notification', e);
     }
 
+    // Send FCM push notifications to registered device tokens (if present)
+    try {
+      const tokensSnap = await admin.database().ref(`shops/${shop}/deviceTokens`).once('value');
+      const tokensObj = tokensSnap.val();
+      if (tokensObj) {
+        const tokens = Object.values(tokensObj).filter(Boolean);
+        if (tokens.length) {
+          const payload = {
+            notification: {
+              title: 'New customer order',
+              body: `${order.customer?.name || 'Customer'} placed an order (${order.id})`,
+              click_action: '/',
+            },
+            data: {
+              orderId: order.id,
+              shop: shop,
+            }
+          };
+          // sendMulticast for up to 500 tokens
+          const res = await admin.messaging().sendMulticast({ tokens, ...payload });
+          console.log('FCM send result:', res.successCount, 'sent /', res.failureCount, 'failed');
+        }
+      }
+    } catch (e) {
+      console.warn('FCM send failed', e);
+    }
+
     // Leave status as 'new' for owner to accept/handle from POS
     return null;
   });
