@@ -1,65 +1,40 @@
-const CACHE_NAME = 'restaurant-inout-v4';
-const CORE_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+const CACHE_NAME = 'pos-pwa-v1';
+const FILES_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js',
+  '/manifest.json'
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE_ASSETS))
-      .then(() => self.skipWaiting())
+// Install: cache app shell
+self.addEventListener('install', (evt) => {
+  evt.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
   );
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+// Activate: cleanup old caches
+self.addEventListener('activate', (evt) => {
+  evt.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.map(k => { if (k !== CACHE_NAME) return caches.delete(k); })
+    ))
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-
-  // Same-origin app files: cache-first with background refresh
-  if (req.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req)
-          .then((res) => {
-            if (res && res.status === 200) {
-              const clone = res.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
-    );
-    return;
-  }
-
-  // jsPDF CDN script: cache-first so PDF export still works offline after first load
-  if (req.url.includes('cdnjs.cloudflare.com/ajax/libs/jspdf')) {
-    event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-        if (res && res.status === 200) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-        }
-        return res;
-      }))
-    );
-    return;
-  }
-
-  // Everything else (Firebase, Google auth, fonts, etc.) — always go to network
+// Fetch: cache-first for app shell, network fallback for others
+self.addEventListener('fetch', (evt) => {
+  if (evt.request.method !== 'GET') return;
+  evt.respondWith(
+    caches.match(evt.request).then(cached => {
+      if (cached) return cached;
+      return fetch(evt.request).then(resp => {
+        // optionally cache new GET responses (omit large/dynamic)
+        return resp;
+      }).catch(()=> caches.match('/index.html'));
+    })
+  );
 });
