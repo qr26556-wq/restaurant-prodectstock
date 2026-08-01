@@ -1,0 +1,7 @@
+[
+  {"id":1,"name":"Tomatoes","category":"produce","unit":"kg","price":2.50,"stock":12,"min":5},
+  {"id":2,"name":"Mozzarella","category":"dairy","unit":"kg","price":4.25,"stock":2,"min":5},
+  {"id":3,"name":"Olive Oil","category":"pantry","unit":"ltr","price":8.00,"stock":8,"min":3},
+  {"id":4,"name":"Basil","category":"produce","unit":"bunch","price":1.00,"stock":0,"min":2},
+  {"id":5,"name":"Flour","category":"pantry","unit":"kg","price":1.75,"stock":25,"min":10}
+]

@@ -28,6 +28,8 @@
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 0 2 7 7 0 1 0 7 7 1 1 0 0 1 2 0 9 9 0 1 1-9-9z"/></svg>
         </button>
 
+        <button id="incomingOrdersBtn" class="btn" title="Incoming customer orders">🔔 <span id="incomingCount">0</span></button>
+
         <button id="new-product" class="btn primary">New Product</button>
 
         <button class="mobile-nav-toggle" aria-controls="main-nav" aria-expanded="false">
@@ -110,6 +112,14 @@
       </div>
     </section>
   </main>
+
+  <div id="ordersOverlay" class="overlay" style="display:none;">
+    <div class="modal">
+      <h3>Incoming Customer Orders</h3>
+      <div id="incomingList" style="max-height:60vh;overflow:auto;"></div>
+      <button onclick="document.getElementById('ordersOverlay').style.display='none'" class="modal-close">Close</button>
+    </div>
+  </div>
 
   <footer class="site-footer">
     <div class="container">
