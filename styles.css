@@ -1,0 +1,15 @@
+:root{--card-bg:#fff;--border:#e0e0e0;}
+body{font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:16px;background:#f6f8fb;color:#111;}
+header{display:flex;align-items:center;justify-content:space-between;}
+h1{margin:0 0 12px 0;font-size:1.2rem;}
+.controls{margin-bottom:12px;}
+.wrap{display:flex;gap:12px;flex-wrap:wrap;}
+.card{background:var(--card-bg);border:1px solid var(--border);padding:12px;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,0.03);}
+.products{flex:1 1 55%;}
+.cart{flex:1 1 35%;}
+.prod{display:flex;justify-content:space-between;margin-bottom:8px;}
+button{background:#1976d2;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;}
+button.hidden{display:none;}
+.order{border-top:1px dashed #eee;padding-top:8px;margin-top:8px;}
+.total{font-weight:700;margin-top:12px;font-size:1.05em;}
+@media(max-width:800px){.wrap{flex-direction:column;} .products,.cart{flex-basis:100%}}

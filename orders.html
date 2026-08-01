@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#1B1B18">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+<title>Orders — RESTPOS</title>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="navHost"></div>
+    <div class="main">
+      <div class="topbar">
+        <h1>Orders</h1>
+        <div class="who" id="whoLabel"></div>
+      </div>
+      <div class="page">
+
+        <div class="toolbar">
+          <div class="filters">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="searchInput" placeholder="Search order # or customer…">
+            </div>
+            <select id="statusFilter" style="width:auto">
+              <option value="all">All statuses</option>
+              <option value="new">New</option>
+              <option value="preparing">Preparing</option>
+              <option value="ready">Ready</option>
+              <option value="completed">Completed</option>
+              <option value="held">Held</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <select id="typeFilter" style="width:auto">
+              <option value="all">All types</option>
+              <option value="dine-in">Dine In</option>
+              <option value="takeaway">Takeaway</option>
+              <option value="delivery">Delivery</option>
+            </select>
+            <input type="date" id="dateFilter" style="width:auto">
+          </div>
+        </div>
+
+        <div class="card table-scroll">
+          <table class="data" id="ordersTable">
+            <thead><tr><th>Order</th><th>Type</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Time</th><th></th></tr></thead>
+            <tbody><tr><td colspan="8" class="hint" style="padding:16px 10px">Loading…</td></tr></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Order detail modal -->
+  <div class="modal-backdrop" id="orderModal">
+    <div class="modal modal-lg">
+      <div class="modal-head"><h2 id="orderModalTitle">Order</h2><button class="icon-btn" onclick="RESTPOS.closeModal('orderModal')">✕</button></div>
+      <div class="modal-body" id="orderModalBody"></div>
+      <div class="modal-foot" id="orderModalFoot"></div>
+    </div>
+  </div>
+
+  <!-- Hidden print area (kept in layout off-screen so print media rules can reveal it) -->
+  <div id="printArea" class="w80 offscreen">
+    <div class="receipt-preview" id="receiptContent"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/orders.js"></script>
+</body>
+</html>
