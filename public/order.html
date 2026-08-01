@@ -1,40 +1,42 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Customer Order — RestaurantStock</title>
-  <meta name="description" content="Place an order from your phone" />
-  <link rel="stylesheet" href="/public/order.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Place an Order</title>
+  <style>
+    body{font-family:system-ui, Arial; padding:12px; background:#0f172a; color:#fff}
+    .card{background:#0b1220;padding:12px;border-radius:8px;max-width:720px;margin:18px auto}
+    h1{font-size:18px;margin:0 0 6px}
+    #menuGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px}
+    .menu-card{background:#00121a;padding:10px;border-radius:8px}
+    .row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+    .cart{background:#071018;padding:10px;border-radius:8px;margin-top:12px}
+    .cart-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
+    input,button{padding:8px;border-radius:6px;border:1px solid #234; background:#071018;color:#fff}
+    .muted{color:#9aa3b2}
+  </style>
 </head>
 <body>
-  <main class="order-app">
-    <header class="order-header">
-      <h1 id="shopName">Restaurant</h1>
-      <div id="orderMeta" class="meta"></div>
-    </header>
+  <div class="card">
+    <h1 id="shopName">Shop</h1>
+    <div id="orderMeta" class="muted">Table: —</div>
+    <div id="menuGrid"></div>
 
-    <section class="menu">
-      <div class="search-row"><input id="search" placeholder="Search menu…" aria-label="Search menu"></div>
-      <div id="menuGrid" class="menu-grid"></div>
-    </section>
-
-    <aside class="cart" id="cartArea">
-      <h2>Your Order</h2>
-      <div id="cartList" class="cart-list"></div>
-      <div class="cart-summary">
-        <div>Total: <span id="cartTotal">$0.00</span></div>
-        <label> Name <input id="custName"></label>
-        <label> Phone <input id="custPhone" inputmode="tel"></label>
-        <label id="addrLabel"> Address <input id="custAddr"></label>
-        <div class="actions">
-          <button id="placeOrder" class="btn primary">Place Order (Cash)</button>
-        </div>
-        <div id="orderStatus" class="status"></div>
+    <div class="cart">
+      <h3>Cart</h3>
+      <div id="cartList" class="muted">Cart is empty</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input id="custName" placeholder="Your name">
+        <input id="custPhone" placeholder="Phone">
       </div>
-    </aside>
-  </main>
-
-  <script src="/public/order.js" type="module"></script>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <div id="cartTotal">$0.00</div>
+        <button id="placeOrder">Place Order</button>
+      </div>
+      <div id="orderStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+  </div>
+  <script src="/public/order.js"></script>
 </body>
 </html>
