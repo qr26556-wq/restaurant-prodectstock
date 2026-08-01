@@ -119,6 +119,8 @@ button{font-family:inherit;cursor:pointer;}
   transition:background .12s ease, color .12s ease, transform .08s ease;
 }
 .cat-btn .ic{font-size:19px;}
+.cat-btn .cat-thumb{width:22px;height:22px;border-radius:6px;object-fit:cover;}
+.cat-title-thumb{width:22px;height:22px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:6px;}
 .cat-btn.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);font-weight:600;box-shadow:inset 0 0 0 1px rgba(185,105,15,.15);}
 .cat-btn:hover:not(.active){background:var(--surface2);transform:translateY(-1px);}
 
@@ -680,7 +682,16 @@ body[data-theme="dark"]{
       <div class="admin-form">
         <input id="newCatLabel" placeholder="Category name" class="full" style="grid-column:1/3;">
         <input id="newCatIcon" placeholder="Emoji icon (e.g. 🍜)" maxlength="4">
-        <button class="btn btn-pay" onclick="addCategory()">Add Category</button>
+        <div class="full img-upload-row" style="grid-column:1/3;">
+          <div class="img-preview" id="catImgPreview">No photo</div>
+          <div class="img-upload-actions">
+            <label class="btn btn-hold img-upload-btn" for="newCatImage">📷 Upload Photo</label>
+            <input id="newCatImage" type="file" accept="image/*" style="display:none;" onchange="handleCatImageSelect(event)">
+            <button type="button" class="btn btn-clear" onclick="removeCatImage()">Remove Photo</button>
+          </div>
+        </div>
+        <button class="btn btn-pay full" style="grid-column:1/3;" id="saveCatBtn" onclick="addCategory()">Add Category</button>
+        <button class="btn btn-hold full" style="grid-column:1/3;display:none;" id="cancelCatEditBtn" onclick="cancelEditCategory()">Cancel Edit</button>
       </div>
       <div class="admin-list" id="adminCatList"></div>
     </div>
@@ -1107,7 +1118,8 @@ function renderCategories(){
   CATEGORIES.forEach(c=>{
     const b = document.createElement('button');
     b.className = 'cat-btn' + (state.activeCat===c.id ? ' active':'');
-    b.innerHTML = `<span class="ic">${c.icon}</span><span>${c.label}</span>`;
+    const catVisual = c.image ? `<img class="cat-thumb" src="${c.image}" alt="">` : `<span class="ic">${c.icon}</span>`;
+    b.innerHTML = `${catVisual}<span>${c.label}</span>`;
     b.onclick = ()=>{ state.activeCat = c.id; document.getElementById('searchInput').value=''; renderCategories(); renderMenu(); };
     el.appendChild(b);
   });
@@ -1116,7 +1128,7 @@ function renderCategories(){
 function renderMenu(){
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   const cat = CATEGORIES.find(c=>c.id===state.activeCat);
-  document.getElementById('catTitle').textContent = q ? 'Search results' : cat.label;
+  document.getElementById('catTitle').innerHTML = q ? 'Search results' : ((cat.image ? `<img class="cat-title-thumb" src="${cat.image}" alt="">` : '') + cat.label);
   let items = MENU.filter(i => q ? i.name.toLowerCase().includes(q) : i.cat===state.activeCat);
   document.getElementById('itemCount').textContent = items.length + ' items';
   const grid = document.getElementById('menuGrid');
@@ -1592,6 +1604,7 @@ function openAdminModal(tab){
   renderAdminCatList();
   populateCurrencySelect();
   cancelEditItem();
+  cancelEditCategory();
   switchAdminTab(tab || 'items');
   document.getElementById('adminOverlay').classList.add('show');
 }
@@ -1779,27 +1792,110 @@ function deleteMenuItem(id){
 
 function renderAdminCatList(){
   const el = document.getElementById('adminCatList');
-  el.innerHTML = CATEGORIES.map(c=>`<div class="admin-row">
-      <span class="admin-row-ic">${c.icon}</span>
+  el.innerHTML = CATEGORIES.map(c=>{
+    const rowVisual = c.image ? `<img class="admin-row-thumb" src="${c.image}" alt="">` : `<span class="admin-row-ic">${c.icon}</span>`;
+    return `<div class="admin-row">
+      ${rowVisual}
       <span class="admin-row-nm">${c.label}</span>
       <span class="admin-row-cat">${MENU.filter(m=>m.cat===c.id).length} items</span>
-    </div>`).join('');
+      <button class="icon-btn" onclick="startEditCategory('${c.id}')" aria-label="Edit category">✎</button>
+      <button class="icon-btn" onclick="deleteCategory('${c.id}')" aria-label="Delete category">🗑</button>
+    </div>`;
+  }).join('') || `<div class="admin-empty">No categories yet.</div>`;
+}
+
+let editingCatId = null;
+let pendingCatImage; // undefined = no change, '' = explicit removal, dataURL string = new photo
+
+function handleCatImageSelect(event){
+  const file = event.target.files && event.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ flashToast('Please choose an image file'); return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const MAX = 240;
+      let w = img.width, h = img.height;
+      if(w > h){ if(w > MAX){ h = Math.round(h * MAX / w); w = MAX; } }
+      else { if(h > MAX){ w = Math.round(w * MAX / h); h = MAX; } }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      pendingCatImage = dataUrl;
+      document.getElementById('catImgPreview').innerHTML = `<img src="${dataUrl}" alt="">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function removeCatImage(){
+  pendingCatImage = '';
+  document.getElementById('catImgPreview').innerHTML = 'No photo';
+  document.getElementById('newCatImage').value = '';
+}
+
+function startEditCategory(id){
+  const cat = CATEGORIES.find(c=>c.id===id);
+  if(!cat) return;
+  editingCatId = id;
+  pendingCatImage = undefined;
+  document.getElementById('newCatLabel').value = cat.label;
+  document.getElementById('newCatIcon').value = cat.icon;
+  document.getElementById('catImgPreview').innerHTML = cat.image ? `<img src="${cat.image}" alt="">` : 'No photo';
+  document.getElementById('saveCatBtn').textContent = 'Save Changes';
+  document.getElementById('cancelCatEditBtn').style.display = '';
+}
+
+function cancelEditCategory(){
+  editingCatId = null;
+  pendingCatImage = undefined;
+  const label = document.getElementById('newCatLabel');
+  if(!label) return;
+  label.value = '';
+  document.getElementById('newCatIcon').value = '';
+  document.getElementById('newCatImage').value = '';
+  document.getElementById('catImgPreview').innerHTML = 'No photo';
+  document.getElementById('saveCatBtn').textContent = 'Add Category';
+  document.getElementById('cancelCatEditBtn').style.display = 'none';
+}
+
+function deleteCategory(id){
+  if(MENU.some(m=>m.cat===id)){ flashToast('Move or delete items in this category first'); return; }
+  if(!confirm('Delete this category?')) return;
+  CATEGORIES = CATEGORIES.filter(c=>c.id!==id);
+  if(state.activeCat===id) state.activeCat = CATEGORIES.length ? CATEGORIES[0].id : null;
+  renderAdminCatList();
+  populateAdminCatSelect();
+  renderCategories();
+  renderMenu();
+  flashToast('Category deleted');
 }
 
 function addCategory(){
   const label = document.getElementById('newCatLabel').value.trim();
   const icon = document.getElementById('newCatIcon').value.trim() || '🍽️';
   if(!label){ flashToast('Enter a category name'); return; }
-  let id = label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-  if(!id) id = 'cat' + Date.now();
-  if(CATEGORIES.find(c=>c.id===id)){ flashToast('That category already exists'); return; }
-  CATEGORIES.push({id, label, icon});
-  document.getElementById('newCatLabel').value = '';
-  document.getElementById('newCatIcon').value = '';
+
+  if(editingCatId){
+    const cat = CATEGORIES.find(c=>c.id===editingCatId);
+    const image = pendingCatImage===undefined ? cat.image : (pendingCatImage || null);
+    Object.assign(cat, {label, icon, image});
+    flashToast('Category updated');
+  } else {
+    let id = label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    if(!id) id = 'cat' + Date.now();
+    if(CATEGORIES.find(c=>c.id===id)){ flashToast('That category already exists'); return; }
+    const image = pendingCatImage || null;
+    CATEGORIES.push({id, label, icon, image});
+    flashToast('Category added');
+  }
+  cancelEditCategory();
   renderAdminCatList();
   populateAdminCatSelect();
   renderCategories();
-  flashToast('Category added');
+  renderMenu();
 }
 
 function populateCurrencySelect(){
