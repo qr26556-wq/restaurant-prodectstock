@@ -51,6 +51,50 @@ function fmtCard(p){
 
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
 
+/* ===== Firebase helper: dynamic SDK load + init ===== */
+let fbReady = false;
+let fbInitPromise = null;
+async function loadScriptOnce(src){
+  if(document.querySelector(`script[src="${src}"]`)) return;
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script'); s.src=src; s.onload=resolve; s.onerror=reject; document.head.appendChild(s);
+  });
+}
+
+async function initFirebase(){
+  if(fbReady) return true;
+  if(fbInitPromise) return fbInitPromise;
+  // Look for a global FIREBASE_CONFIG or firebaseConfig variable (set by deployment)
+  const cfg = window.FIREBASE_CONFIG || window.firebaseConfig || null;
+  if(!cfg || !cfg.apiKey){ return Promise.resolve(false); }
+  fbInitPromise = (async ()=>{
+    try{
+      await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+      await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js');
+      await loadScriptOnce('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+      firebase.initializeApp(cfg);
+      fbReady = true;
+      return true;
+    }catch(e){ fbInitPromise = null; return false; }
+  })();
+  return fbInitPromise;
+}
+
+async function ownerSignIn(){
+  const ok = await initFirebase();
+  if(!ok){ flash('Firebase not configured — cannot sign in'); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).then(res=>{
+    const user = res.user;
+    const shop = state.shopCode;
+    // write shop ownership mapping so DB rules can enforce isolation
+    try{ firebase.database().ref('shops/' + shop).update({ ownerUid: user.uid, shopName: document.title || shop, updatedAt: Date.now() }); }catch(e){ console.warn('Could not write shop mapping', e); }
+    flash('Signed in as ' + (user.displayName || user.email || 'owner'));
+    // re-run incoming orders poll so firebase listener attaches now with auth
+    pollIncomingOrders();
+  }).catch(err=>{ console.warn(err); flash('Sign-in failed'); });
+}
+
 async function loadProducts(){
   try{
     const r = await fetch('/data/products.json');
@@ -95,6 +139,9 @@ function setup(){
   els.incomingBtn.addEventListener('click', ()=>{ document.getElementById('ordersOverlay').style.display='block'; renderIncomingOrders(); });
   pollIncomingOrders();
 
+  // Sign-in
+  const signBtn = document.getElementById('signInBtn'); if(signBtn) signBtn.addEventListener('click', ownerSignIn);
+
   // Theme toggle (unchanged)
   const root = document.documentElement; const stored = localStorage.getItem('theme'); if(stored === 'light') root.classList.add('light','theme-locked');
   els.toggleThemeBtn.addEventListener('click', ()=>{ const isLight = root.classList.toggle('light'); root.classList.add('theme-locked'); localStorage.setItem('theme', isLight ? 'light' : 'dark'); els.toggleThemeBtn.setAttribute('aria-pressed', String(isLight)); });
@@ -102,15 +149,17 @@ function setup(){
 
 // Simple incoming orders using localStorage (shop-scoped) and optional Firebase realtime
 function readLocalOrders(){ const key = `customer_orders_${state.shopCode}`; try{ return JSON.parse(localStorage.getItem(key)||'[]'); }catch(e){ return []; } }
-function renderIncomingOrders(){ const list = readLocalOrders(); els.incomingList.innerHTML = list.reverse().map(o=>`<div style="padding:8px;border-bottom:1px dashed #ccc;color:#111;background:#fff;margin-bottom:6px;border-radius:6px;padding:10px;"><div><strong>${o.customer?.name||'Guest'}</strong> · ${new Date(o.time).toLocaleString()}</div><div style="font-size:13px;color:#333;margin-top:6px;">${o.lines.map(l=>l.qty+'× '+l.name).join(', ')}</div><div style="margin-top:8px;"><button class="btn" onclick="acceptOrder('${o.id}')">Accept</button> <button class="btn" onclick="sendToKitchen('${o.id}')">Send KOT</button></div></div>`).join('') || '<div class="muted">No orders yet</div>'; els.incomingCount.textContent = list.length; }
+function renderIncomingOrders(){ const list = readLocalOrders(); els.incomingList.innerHTML = list.slice().reverse().map(o=>`<div style="padding:8px;border-bottom:1px dashed #ccc;color:#111;background:#fff;margin-bottom:6px;border-radius:6px;padding:10px;"><div><strong>${o.customer?.name||'Guest'}</strong> · ${new Date(o.time).toLocaleString()}</div><div style="font-size:13px;color:#333;margin-top:6px;">${o.lines.map(l=>l.qty+'× '+l.name).join(', ')}</div><div style="margin-top:8px;"> <button class="btn" onclick="acceptOrder('${o.id}')">Accept</button> <button class="btn" onclick="sendToKitchen('${o.id}')">Send KOT</button></div></div>`).join('') || '<div class="muted">No orders yet</div>'; els.incomingCount.textContent = list.length; }
 
 function pollIncomingOrders(){ renderIncomingOrders(); // try firebase too
   if(window.firebase && window.firebase.database){
-    const ref = firebase.database().ref(`customer_orders/${state.shopCode}`);
-    ref.off();
-    ref.on('child_added', snap=>{ const order = snap.val(); // persist to local cache
-      const key = `customer_orders_${state.shopCode}`; const arr = readLocalOrders(); arr.push(order); localStorage.setItem(key, JSON.stringify(arr)); renderIncomingOrders(); flash('New customer order');
-    });
+    try{
+      const ref = firebase.database().ref(`customer_orders/${state.shopCode}`);
+      ref.off();
+      ref.on('child_added', snap=>{ const order = snap.val(); // persist to local cache
+        const key = `customer_orders_${state.shopCode}`; const arr = readLocalOrders(); arr.push(order); localStorage.setItem(key, JSON.stringify(arr)); renderIncomingOrders(); flash('New customer order');
+      });
+    }catch(e){ console.warn('Firebase listener error', e); }
   }
   setTimeout(pollIncomingOrders, 5000);
 }
