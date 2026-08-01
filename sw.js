@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restpos-shell-v1';
+const CACHE_NAME = 'restpos-shell-v2';
 const SHELL_FILES = [
   'index.html',
   'login.html',
@@ -38,20 +38,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for our own static shell; everything else (Firebase, CDNs) goes
-// straight to the network so live data is never served stale.
+// Network-first for our own static shell: every request tries the live
+// network FIRST so a new deploy is picked up immediately, and only falls
+// back to the cached copy if the network is unreachable (offline use at
+// the counter). This also refreshes the cache with whatever the network
+// just returned, so the offline fallback stays reasonably current.
+// Everything else (Firebase, CDNs) goes straight to the network untouched.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return res;
-      }).catch(() => cached);
-    })
+    fetch(event.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });

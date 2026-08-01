@@ -8,12 +8,13 @@
    (see /firestore.rules) and Authentication settings.
    ========================================================= */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBqyd1uEYfaWECMc4GDQcSDvIOosjspm_I",
+  authDomain: "restaurant-prodectstock-f8a0b.firebaseapp.com",
+  databaseURL: "https://restaurant-prodectstock-f8a0b-default-rtdb.firebaseio.com",
+  projectId: "restaurant-prodectstock-f8a0b",
+  storageBucket: "restaurant-prodectstock-f8a0b.firebasestorage.app",
+  messagingSenderId: "772901074180",
+  appId: "1:772901074180:web:46de8bf8808ee2afbf4c51"
 };
 
 firebase.initializeApp(firebaseConfig);
