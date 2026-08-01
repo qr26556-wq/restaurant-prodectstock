@@ -1,0 +1,104 @@
+:root{
+  --bg:#0f172a; /* dark slate */
+  --card:#0b1220;
+  --muted:#94a3b8;
+  --accent:#06b6d4; /* cyan */
+  --text:#e6eef8;
+  --surface:#0b1220;
+  --gap:1rem;
+  --radius:10px;
+  --container-max:1100px;
+  --glass: rgba(255,255,255,0.03);
+  --success:#10b981;
+  --danger:#f97316;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-size:16px;
+}
+
+/* Light theme */
+:root.light {
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --muted:#475569;
+  --accent:#0ea5e9;
+  --text:#0f172a;
+  --surface:#ffffff;
+  --glass: rgba(15,23,42,0.04);
+}
+
+/* Respect user preference by default */
+@media (prefers-color-scheme: light) {
+  :root:not(.theme-locked) { /* will be overridden if user toggles */
+    --bg:#f8fafc;
+    --card:#ffffff;
+    --muted:#475569;
+    --accent:#0ea5e9;
+    --text:#0f172a;
+    --surface:#ffffff;
+    --glass: rgba(15,23,42,0.04);
+  }
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:linear-gradient(180deg,var(--bg),color-mix(in srgb, var(--bg) 90%, transparent));
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  line-height:1.45;
+}
+
+/* Utility */
+.container{max-width:var(--container-max);margin:0 auto;padding:1rem}
+.header-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.brand{font-weight:700;color:var(--text);text-decoration:none;font-size:1.05rem}
+.muted{color:var(--muted)}
+.visually-hidden,.sr-only{position:absolute !important;height:1px;width:1px;overflow:hidden;clip:rect(1px,1px,1px,1px);white-space:nowrap;border:0;padding:0;margin:-1px}
+
+/* Header */
+.site-header{background:linear-gradient(0deg, rgba(255,255,255,0.02), transparent);backdrop-filter: blur(6px);position:sticky;top:0;z-index:40;border-bottom:1px solid rgba(255,255,255,0.03)}
+.header-controls{display:flex;align-items:center;gap:.5rem}
+.search input{background:var(--card);border:1px solid rgba(255,255,255,0.02);padding:.5rem .75rem;border-radius:8px;color:var(--text);min-width:200px}
+.btn{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text);padding:.45rem .7rem;border-radius:8px;cursor:pointer}
+.btn.primary{background:linear-gradient(90deg,var(--accent),#06b6d4);color:#042037;border:none}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:.45rem}
+
+/* Hero */
+.hero{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1.2rem 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+.stats{display:flex;gap:1rem}
+.stat{background:var(--card);padding:.65rem 1rem;border-radius:10px;min-width:110px;text-align:center}
+.stat-value{font-weight:700;font-size:1.1rem}
+.stat-label{color:var(--muted);font-size:.9rem}
+
+/* Inventory controls */
+.inventory-controls{display:flex;gap:1rem;justify-content:space-between;align-items:center;padding:1rem 0}
+
+/* Table */
+.inventory-table{width:100%;border-collapse:collapse;background:transparent}
+.inventory-table thead th{font-size:.9rem;text-align:left;padding:.65rem;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+.inventory-table td{padding:.85rem;border-bottom:1px solid rgba(255,255,255,0.02);vertical-align:middle}
+.tag{display:inline-block;padding:.25rem .5rem;border-radius:999px;font-size:.8rem;background:var(--glass);color:var(--muted)}
+
+/* Cards */
+.hidden{display:none}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+.card{background:var(--card);padding:1rem;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+.card h3{margin:.2rem 0 .5rem 0}
+.card .meta{color:var(--muted);font-size:.9rem}
+
+/* Footer */
+.site-footer{padding:1rem 0;margin-top:2rem;border-top:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+
+/* Responsive */
+@media (max-width:720px){
+  .header-inner{gap:.5rem}
+  .search input{min-width:120px}
+  .hero{flex-direction:column;align-items:flex-start;gap:.6rem}
+  .inventory-controls{flex-direction:column;align-items:flex-start;gap:.6rem}
+}
+
+/* Stock alerts */
+.low{color:var(--danger);font-weight:600}
+.ok{color:var(--success);font-weight:600}
