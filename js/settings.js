@@ -6,6 +6,8 @@ RESTPOS.guard(['admin'], async (user) => {
 
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('backup30Btn').addEventListener('click', downloadLast30DaysPDF);
+  document.getElementById('pushDayStartBtn').addEventListener('click', () => setFieldToNow('sDayStart'));
+  document.getElementById('pushDayEndBtn').addEventListener('click', () => setFieldToNow('sDayEnd'));
 
   DB.listenTables(list => { __tables = list; renderTablesList(); });
   document.getElementById('addTableBtn').addEventListener('click', addTableFromForm);
@@ -93,6 +95,14 @@ async function generate30Tables() {
     btn.disabled = false;
     btn.textContent = '⚡ Generate tables';
   }
+}
+
+function setFieldToNow(fieldId) {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById(fieldId).value = `${hh}:${mm}`;
+  RESTPOS.toast('Set to current time — tap "Save changes" to apply.', 'default');
 }
 
 async function loadSettings() {

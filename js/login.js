@@ -178,6 +178,7 @@ const createShopForm = document.getElementById('createShopForm');
 const googleBtn = document.getElementById('googleBtn');
 const authDivider = document.querySelector('.auth-divider');
 const noAccountHint = document.getElementById('noAccountHint');
+const haveCodeHint = document.getElementById('haveCodeHint');
 const authTabs = document.querySelector('.auth-tabs');
 
 function hideAllPanels() {
@@ -186,6 +187,7 @@ function hideAllPanels() {
   authDivider.classList.add('hidden');
   googleBtn.classList.add('hidden');
   noAccountHint.classList.add('hidden');
+  haveCodeHint.classList.add('hidden');
   resetForm.classList.add('hidden');
   joinForm.classList.add('hidden');
   createShopForm.classList.add('hidden');
@@ -210,6 +212,7 @@ function showLoginForm() {
   authDivider.classList.remove('hidden');
   googleBtn.classList.remove('hidden');
   noAccountHint.classList.remove('hidden');
+  haveCodeHint.classList.remove('hidden');
   authTabs.classList.remove('hidden');
 }
 
@@ -218,6 +221,7 @@ document.getElementById('backToLoginBtn').addEventListener('click', showLoginFor
 document.getElementById('backFromJoinBtn').addEventListener('click', showLoginForm);
 document.getElementById('showCreateShopBtn').addEventListener('click', showCreateShopForm);
 document.getElementById('backFromCreateShopBtn').addEventListener('click', showLoginForm);
+document.getElementById('showJoinBtn').addEventListener('click', showJoinForm);
 
 resetForm.addEventListener('submit', async (e) => {
   e.preventDefault();

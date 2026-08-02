@@ -1,11 +1,43 @@
 let currentUser = null;
 let allStaff = [];
+let allCodes = [];
 let roleModalUid = null;
 
 RESTPOS.guard(['admin'], (user) => {
   currentUser = user;
   RESTPOS.renderNav('staff', user.role, user.name);
   DB.listenStaffUsers(user.restaurantId, renderStaffTable);
+  DB.listenStaffCodes(user.restaurantId, renderCodesTable);
+
+  document.getElementById('genCodeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('genCodeBtn');
+    const role = document.getElementById('codeRole').value;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      const code = await DB.generateStaffCode(role, currentUser.restaurantId, currentUser.uid, currentUser.name);
+      document.getElementById('freshCodeText').textContent = code;
+      document.getElementById('freshCodeRole').textContent = ROLE_LABELS[role] || role;
+      document.getElementById('freshCodeBox').classList.remove('hidden');
+      RESTPOS.toast('Code generated — share it with your staff member.', 'success');
+    } catch (err) {
+      console.error(err);
+      RESTPOS.toast('Could not generate a code: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ Generate code';
+    }
+  });
+
+  document.getElementById('copyCodeBtn').addEventListener('click', async () => {
+    const code = document.getElementById('freshCodeText').textContent;
+    try {
+      await navigator.clipboard.writeText(code);
+      RESTPOS.toast('Code copied.', 'success');
+    } catch (_) {
+      RESTPOS.toast('Could not copy — select and copy the code manually.', 'error');
+    }
+  });
 
   document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -74,6 +106,41 @@ RESTPOS.guard(['admin'], (user) => {
     }
   });
 });
+
+function renderCodesTable(list) {
+  allCodes = list;
+  const tbody = document.querySelector('#codesTable tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="hint" style="padding:16px 10px">No codes yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td class="mono" style="font-weight:700; letter-spacing:1px">${RESTPOS.escapeHtml(c.id)}</td>
+      <td><span class="badge badge-slate" style="text-transform:capitalize">${ROLE_LABELS[c.role] || c.role}</span></td>
+      <td>${c.used
+        ? `<span class="badge badge-sage">Used${c.usedByName ? ' · ' + RESTPOS.escapeHtml(c.usedByName) : ''}</span>`
+        : `<span class="badge badge-amber">Unused</span>`}</td>
+      <td style="text-align:right">
+        ${!c.used ? `<button class="icon-btn" title="Delete code" data-delcode="${c.id}">${RESTPOS.icon('trash')}</button>` : ''}
+      </td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('[data-delcode]').forEach(btn => {
+    btn.addEventListener('click', () => deleteCode(btn.dataset.delcode));
+  });
+}
+
+async function deleteCode(code) {
+  if (!confirm(`Delete unused code ${code}? It won't be redeemable anymore.`)) return;
+  try {
+    await DB.deleteStaffCode(code);
+    RESTPOS.toast('Code deleted.', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not delete code: ' + err.message, 'error');
+  }
+}
 
 const ROLE_LABELS = { admin: 'Admin', manager: 'Manager', cashier: 'Cashier' };
 

@@ -34,10 +34,46 @@
         </div>
 
         <div class="card" style="margin-top:16px; padding:18px">
+          <div class="section-title"><h2>Invite with a code</h2></div>
+          <p class="hint" style="margin:0 0 14px">
+            Generate a one-time code and share it with your staff member. They open the app on
+            their own phone, tap "Join your team" on the sign-in screen, enter the code and
+            continue with their own Google account — no email or password to hand out, and it
+            works from as many phones as you generate codes for.
+          </p>
+          <div class="field-row" style="align-items:flex-end; margin-bottom:16px">
+            <div class="field" style="margin-bottom:0">
+              <label>Role for this code</label>
+              <select id="codeRole">
+                <option value="cashier">Cashier</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <button class="btn btn-primary btn-block" id="genCodeBtn">⚡ Generate code</button>
+            </div>
+          </div>
+
+          <div id="freshCodeBox" class="hidden" style="display:flex; align-items:center; gap:12px; background:var(--gold-soft,#F7EAC5); border:1px dashed var(--gold,#C9971F); border-radius:8px; padding:14px 16px; margin-bottom:16px">
+            <span class="mono" id="freshCodeText" style="font-size:22px; font-weight:700; letter-spacing:4px; color:var(--ember-dark)"></span>
+            <button class="btn btn-sm" id="copyCodeBtn" type="button">Copy</button>
+            <span class="hint" style="margin-left:auto">One-time use · <span id="freshCodeRole"></span></span>
+          </div>
+
+          <div class="table-scroll">
+            <table class="data" id="codesTable">
+              <thead><tr><th>Code</th><th>Role</th><th>Status</th><th></th></tr></thead>
+              <tbody><tr><td colspan="4" class="hint" style="padding:16px 10px">No codes yet.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px; padding:18px">
           <div class="section-title"><h2>Add a staff member</h2></div>
           <p class="hint" style="margin:0 0 14px">
-            Create their sign-in directly — no codes to share. Give them the email and password
-            yourself; they can change the password later from their own account.
+            Prefer to set their password yourself instead of a join code? Create their sign-in
+            directly here — they can change the password later from their own account.
           </p>
           <form id="addStaffForm">
             <div class="field-row">

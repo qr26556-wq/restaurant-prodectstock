@@ -46,11 +46,17 @@
             <div class="field-row">
               <div class="field">
                 <label>Business day starts at</label>
-                <input id="sDayStart" type="time">
+                <div style="display:flex; gap:6px">
+                  <input id="sDayStart" type="time" style="flex:1">
+                  <button type="button" class="btn btn-sm" id="pushDayStartBtn" title="Set to current time">Now</button>
+                </div>
               </div>
               <div class="field">
                 <label>Business day ends at</label>
-                <input id="sDayEnd" type="time">
+                <div style="display:flex; gap:6px">
+                  <input id="sDayEnd" type="time" style="flex:1">
+                  <button type="button" class="btn btn-sm" id="pushDayEndBtn" title="Set to current time">Now</button>
+                </div>
               </div>
             </div>
             <div class="field">
