@@ -6,22 +6,43 @@ RESTPOS.guard(['admin'], (user) => {
   currentUser = user;
   RESTPOS.renderNav('staff', user.role, user.name);
   DB.listenStaffUsers(user.restaurantId, renderStaffTable);
-  DB.listenStaffCodes(user.restaurantId, renderStaffCodes);
 
-  document.getElementById('genCodeBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('genCodeBtn');
-    const role = document.getElementById('genCodeRole').value;
+  document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('addStaffBtn');
+    const name = document.getElementById('newStaffName').value.trim();
+    const email = document.getElementById('newStaffEmail').value.trim();
+    const password = document.getElementById('newStaffPassword').value;
+    const role = document.getElementById('newStaffRole').value;
+    if (!name || !email || password.length < 6) {
+      RESTPOS.toast('Fill in name, a valid email, and a password of at least 6 characters.', 'error');
+      return;
+    }
     btn.disabled = true;
-    btn.textContent = 'Generating…';
+    btn.textContent = 'Creating…';
+    // Creating a Firebase Auth user with the client SDK normally signs
+    // the app in AS that new user, which would kick the admin out of
+    // their own session. To avoid that, we spin up a throwaway secondary
+    // Firebase app instance just for this one signup, then discard it —
+    // the admin's real session (used everywhere else, including the
+    // Firestore write right below) is never touched.
+    const tempApp = firebase.initializeApp(firebaseConfig, 'staffCreate-' + Date.now());
     try {
-      const code = await DB.generateStaffCode(role, user.restaurantId, user.uid, user.name);
-      RESTPOS.toast(`Code ${code} ready — share it with the new ${role}.`, 'success');
+      const cred = await tempApp.auth().createUserWithEmailAndPassword(email, password);
+      const newUid = cred.user.uid;
+      await tempApp.auth().signOut();
+      await DB.adminCreateStaff(newUid, { name, email, role });
+      RESTPOS.toast(`${name} can now sign in as ${role}.`, 'success');
+      document.getElementById('addStaffForm').reset();
     } catch (err) {
       console.error(err);
-      RESTPOS.toast('Could not generate a code: ' + err.message, 'error');
+      let msg = err.message;
+      if (err.code === 'auth/email-already-in-use') msg = 'That email already has an account.';
+      RESTPOS.toast('Could not create account: ' + msg, 'error');
     } finally {
+      try { await tempApp.delete(); } catch (_) {}
       btn.disabled = false;
-      btn.textContent = 'Generate code';
+      btn.textContent = 'Create account';
     }
   });
 
@@ -115,29 +136,4 @@ async function removeStaff(uid) {
   }
 }
 
-function renderStaffCodes(list) {
-  const host = document.getElementById('staffCodesList');
-  if (!list.length) {
-    host.innerHTML = `<p class="hint">No codes generated yet.</p>`;
-    return;
-  }
-  host.innerHTML = list.map(c => `
-    <div class="receipt-line">
-      <span class="rl-name mono" style="letter-spacing:2px; font-weight:700">${c.id}</span>
-      <span style="text-transform:capitalize; margin-left:10px">${RESTPOS.escapeHtml(c.role)}</span>
-      <span class="rl-fill"></span>
-      ${c.used
-        ? `<span class="stamp stamp-completed">used — ${RESTPOS.escapeHtml(c.usedByName || '')}</span>`
-        : `<span class="stamp stamp-new">unused</span>
-           <button class="icon-btn" title="Delete code" data-del="${c.id}">${RESTPOS.icon('trash')}</button>`
-      }
-    </div>`).join('');
 
-  host.querySelectorAll('[data-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this unused code?')) return;
-      try { await DB.deleteStaffCode(btn.dataset.del); }
-      catch (err) { RESTPOS.toast('Could not delete: ' + err.message, 'error'); }
-    });
-  });
-}

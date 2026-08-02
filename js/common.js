@@ -113,6 +113,8 @@ const RESTPOS = (() => {
     const who = document.getElementById('whoLabel');
     if (who) who.textContent = userLabel || '';
 
+    mountClock();
+
     // fetch restaurant name for brand, if settings loaded later this can be re-set
     DB.getSettings().then(data => {
       if (data && data.restaurantName) {
@@ -121,6 +123,28 @@ const RESTPOS = (() => {
       }
       window.__settings = data || {};
     }).catch(() => {});
+  }
+
+  // Small live clock shown in the topbar of every page (next to the
+  // signed-in user's name), so the counter always has the current time
+  // in view without anyone needing to check their phone separately.
+  function mountClock() {
+    const topbar = document.querySelector('.topbar');
+    if (!topbar || document.getElementById('liveClock')) return;
+    const clock = document.createElement('div');
+    clock.id = 'liveClock';
+    clock.className = 'hint mono';
+    clock.style.marginLeft = 'auto';
+    clock.style.marginRight = '14px';
+    const who = document.getElementById('whoLabel');
+    if (who) topbar.insertBefore(clock, who); else topbar.appendChild(clock);
+    const tick = () => {
+      clock.textContent = new Date().toLocaleString(undefined, {
+        weekday: 'short', hour: '2-digit', minute: '2-digit',
+      });
+    };
+    tick();
+    setInterval(tick, 1000 * 30);
   }
 
   function logout() {
@@ -171,5 +195,76 @@ const RESTPOS = (() => {
   function openModal(id) { document.getElementById(id).classList.add('open'); }
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, NAV_ITEMS };
+  /* ---------------- PDF: receipt (narrow, thermal-style) ---------------- */
+  function receiptPDF(order, settings, filenamePrefix = 'receipt') {
+    if (typeof window.jspdf === 'undefined') { toast('PDF tool still loading — try again in a moment', 'error'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: [80, 200] });
+    let y = 8;
+    const center = (text, size = 11, bold = false) => {
+      doc.setFontSize(size); doc.setFont(undefined, bold ? 'bold' : 'normal');
+      doc.text(String(text), 40, y, { align: 'center' }); y += size * 0.62;
+    };
+    const left = (text, size = 9) => {
+      doc.setFontSize(size); doc.setFont(undefined, 'normal');
+      doc.splitTextToSize(String(text), 72).forEach(l => { doc.text(l, 4, y); y += 4.2; });
+    };
+    const kv = (label, value, bold = false) => {
+      doc.setFontSize(9); doc.setFont(undefined, bold ? 'bold' : 'normal');
+      doc.text(String(label), 4, y);
+      doc.text(String(value), 76, y, { align: 'right' });
+      y += 4.4;
+    };
+    const rule = () => { doc.setLineWidth(0.1); doc.line(4, y, 76, y); y += 3.5; };
+
+    center(settings.restaurantName || 'Restaurant', 12, true);
+    if (settings.address) left(settings.address);
+    if (settings.phone) left(settings.phone);
+    y += 1; rule();
+    left(`Order #${order.orderNumber}`);
+    left(fmtDate(order.createdAt) === '—' ? new Date().toLocaleString() : fmtDate(order.createdAt));
+    if (order.cashierName) left(`Cashier: ${order.cashierName}`);
+    left(`${order.type}${order.tableName ? ' · ' + order.tableName : ''}`);
+    rule();
+    (order.items || []).forEach(i => kv(`${i.name} x${i.qty}`, money(i.price * i.qty, settings.currency)));
+    rule();
+    kv('Subtotal', money(order.subtotal, settings.currency));
+    kv('Discount', '-' + money(order.discount, settings.currency));
+    kv('Tax', money(order.tax, settings.currency));
+    kv('Total', money(order.total, settings.currency), true);
+    rule();
+    left(`Paid via ${order.paymentMethod || '—'}`);
+    y += 2; center('Thank you — visit again!', 9);
+    doc.save(`${filenamePrefix}-${order.orderNumber || Date.now()}.pdf`);
+  }
+
+  /* ---------------- PDF: full-page table report (orders list, backups) ---------------- */
+  function tablePDF(filename, title, head, rows, meta) {
+    if (typeof window.jspdf === 'undefined') { toast('PDF tool still loading — try again in a moment', 'error'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(14); doc.text(title, 14, 16);
+    let startY = 22;
+    if (meta) {
+      doc.setFontSize(9); doc.setTextColor(120);
+      doc.text(meta, 14, 22);
+      doc.setTextColor(30);
+      startY = 28;
+    }
+    if (typeof doc.autoTable === 'function') {
+      doc.autoTable({ head: [head], body: rows, startY, styles: { fontSize: 8 }, headStyles: { fillColor: [232, 89, 12] } });
+    } else {
+      // fallback if autotable didn't load: plain text rows
+      let y = startY + 4;
+      doc.setFontSize(9);
+      doc.text(head.join('  |  '), 14, y); y += 6;
+      rows.forEach(r => {
+        if (y > 280) { doc.addPage(); y = 16; }
+        doc.text(r.join('  |  '), 14, y); y += 6;
+      });
+    }
+    doc.save(filename);
+  }
+
+  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, receiptPDF, tablePDF, NAV_ITEMS };
 })();

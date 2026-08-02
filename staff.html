@@ -34,22 +34,29 @@
         </div>
 
         <div class="card" style="margin-top:16px; padding:18px">
-          <div class="section-title"><h2>Invite new staff — join codes</h2></div>
-          <p class="hint" style="margin:0 0 12px">
-            Generate a one-time code and share it with a new staff member (WhatsApp/SMS/verbally).
-            They open <span class="mono">login.html</span> on their own phone → "Join with a staff code" →
-            enter it → sign in with their own Google account. Their profile and role are created automatically;
-            the code can't be reused.
+          <div class="section-title"><h2>Add a staff member</h2></div>
+          <p class="hint" style="margin:0 0 14px">
+            Create their sign-in directly — no codes to share. Give them the email and password
+            yourself; they can change the password later from their own account.
           </p>
-          <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap">
-            <select id="genCodeRole" style="width:auto">
-              <option value="cashier">Cashier</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button class="btn btn-primary" id="genCodeBtn">Generate code</button>
-          </div>
-          <div id="staffCodesList"><p class="hint">Loading…</p></div>
+          <form id="addStaffForm">
+            <div class="field-row">
+              <div class="field"><label>Full name</label><input id="newStaffName" required></div>
+              <div class="field">
+                <label>Role</label>
+                <select id="newStaffRole">
+                  <option value="cashier">Cashier</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Email</label><input id="newStaffEmail" type="email" required autocomplete="off"></div>
+              <div class="field"><label>Password</label><input id="newStaffPassword" type="text" required minlength="6" placeholder="min. 6 characters"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="addStaffBtn">Create account</button>
+          </form>
         </div>
 
       </div>

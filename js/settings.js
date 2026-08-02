@@ -3,6 +3,7 @@ RESTPOS.guard(['admin'], async (user) => {
   await loadSettings();
 
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+  document.getElementById('backup30Btn').addEventListener('click', downloadLast30DaysPDF);
 });
 
 async function loadSettings() {
@@ -13,8 +14,11 @@ async function loadSettings() {
     document.getElementById('sPhone').value = data.phone || '';
     document.getElementById('sCurrency').value = data.currency || '₹';
     document.getElementById('sTax').value = data.taxPercent ?? 0;
+    document.getElementById('sDayStart').value = data.businessDayStart || '00:00';
+    document.getElementById('sDayEnd').value = data.businessDayEnd || '23:59';
     document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
     document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
+    document.getElementById('sAutoDelete').checked = !!data.autoDeleteOldOrders;
   } catch (err) {
     console.error(err);
     RESTPOS.toast('Could not load settings: ' + err.message, 'error');
@@ -32,8 +36,11 @@ async function saveSettings() {
     phone: document.getElementById('sPhone').value.trim(),
     currency: document.getElementById('sCurrency').value.trim() || '₹',
     taxPercent: parseFloat(document.getElementById('sTax').value) || 0,
+    businessDayStart: document.getElementById('sDayStart').value || '00:00',
+    businessDayEnd: document.getElementById('sDayEnd').value || '23:59',
     receiptFooter: document.getElementById('sFooter').value.trim(),
     receiptPaperWidth: parseInt(document.getElementById('sPaperWidth').value, 10),
+    autoDeleteOldOrders: document.getElementById('sAutoDelete').checked,
   };
 
   btn.disabled = true;
@@ -52,5 +59,46 @@ async function saveSettings() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save changes';
+  }
+}
+
+async function downloadLast30DaysPDF() {
+  const btn = document.getElementById('backup30Btn');
+  btn.disabled = true;
+  btn.textContent = 'Preparing…';
+  try {
+    const cutoff = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+    const snap = await DB.ordersRef().where('createdAt', '>=', cutoff).orderBy('createdAt', 'desc').get();
+    if (snap.empty) { RESTPOS.toast('No orders in the last 30 days.', 'default'); return; }
+    const s = window.__settings || {};
+    const head = ['Order', 'Type', 'Items', 'Total', 'Payment', 'Status', 'Time'];
+    const rows = [];
+    let total = 0;
+    snap.docs.forEach(d => {
+      const o = d.data();
+      rows.push([
+        `#${o.orderNumber}`,
+        (o.type || '') + (o.tableName ? ' · ' + o.tableName : ''),
+        String(o.items?.length || 0),
+        RESTPOS.money(o.total, s.currency),
+        o.paymentMethod || '—',
+        o.status,
+        RESTPOS.fmtDate(o.createdAt),
+      ]);
+      if (o.status !== 'cancelled') total += (o.total || 0);
+    });
+    RESTPOS.tablePDF(
+      `${(s.restaurantName || 'restaurant').replace(/\s+/g, '-').toLowerCase()}-last-30-days.pdf`,
+      `${s.restaurantName || 'Restaurant'} — Last 30 Days`,
+      head, rows,
+      `${rows.length} orders · Total (excl. cancelled): ${RESTPOS.money(total, s.currency)} · Generated ${new Date().toLocaleString()}`
+    );
+    RESTPOS.toast('Backup PDF downloaded.', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not build backup: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ Download last 30 days (PDF)';
   }
 }

@@ -7,8 +7,23 @@ RESTPOS.guard(['admin', 'manager'], (user) => {
   boot();
   if (user.role !== 'admin') {
     document.getElementById('staffLinkCard')?.remove();
+  } else {
+    maybeRunRetentionCleanup();
   }
 });
+
+async function maybeRunRetentionCleanup() {
+  try {
+    const settings = await DB.getSettings();
+    if (!settings.autoDeleteOldOrders) return;
+    const deleted = await DB.pruneOldOrders(35);
+    if (deleted > 0) {
+      RESTPOS.toast(`Data retention: removed ${deleted} order(s) older than 35 days.`, 'default');
+    }
+  } catch (e) {
+    console.error('retention cleanup', e);
+  }
+}
 
 function boot() {
   DB.listenProducts(list => {

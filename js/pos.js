@@ -7,6 +7,7 @@ let paymentMethod = 'cash';
 let taxPercent = 5;
 let searchTerm = '';
 let currentUser = null;
+let lastReceiptOrder = null;
 
 RESTPOS.guard(['admin', 'cashier'], (user) => {
   currentUser = user;
@@ -55,6 +56,10 @@ function boot() {
   document.getElementById('printReceiptBtn').addEventListener('click', () => {
     document.getElementById('printArea').className = document.getElementById('printWidth').value;
     window.print();
+  });
+  document.getElementById('pdfReceiptBtn').addEventListener('click', () => {
+    if (!lastReceiptOrder) return;
+    RESTPOS.receiptPDF(lastReceiptOrder, window.__settings || {}, 'receipt');
   });
 }
 
@@ -227,6 +232,7 @@ async function submitOrder(status) {
 }
 
 function showReceipt(order) {
+  lastReceiptOrder = order;
   const s = window.__settings || {};
   const lines = order.items.map(i => `
     <div class="receipt-line"><span class="rl-name">${RESTPOS.escapeHtml(i.name)} x${i.qty}</span><span class="rl-fill"></span><span class="rl-val">${RESTPOS.money(i.price * i.qty)}</span></div>

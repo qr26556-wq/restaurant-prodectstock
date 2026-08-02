@@ -42,13 +42,20 @@ const DB = (() => {
       throw new Error('This Google account is already linked to a restaurant. Sign out and use a different account, or ask your admin for a staff join code instead.');
     }
     const restRef = top.restaurants.doc();
-    const batch = db.batch();
-    batch.set(restRef, {
+    // These must be two SEPARATE, sequential writes rather than one batch.
+    // The security rule for creating the admin's users/{uid} profile checks
+    // (via get()) that the restaurant doc already exists — and a get()
+    // inside a rule can never see another write from the same batch, only
+    // what's already committed. Batching both together always fails with
+    // "Missing or insufficient permissions". Awaiting the restaurant write
+    // first makes sure it's actually committed before the profile write
+    // is attempted.
+    await restRef.set({
       name: name || 'My Restaurant',
       ownerUid: user.uid,
       createdAt: FieldValue.serverTimestamp(),
     });
-    batch.set(top.users.doc(user.uid), {
+    await top.users.doc(user.uid).set({
       name: user.displayName || user.email,
       email: user.email,
       role: 'admin',
@@ -56,7 +63,6 @@ const DB = (() => {
       restaurantId: restRef.id,
       createdAt: FieldValue.serverTimestamp(),
     });
-    await batch.commit();
     return restRef.id;
   }
 
@@ -119,12 +125,27 @@ const DB = (() => {
       err => console.error('orders listen', err)
     );
   }
+  // "Today" respects the shop's configured business-day start time
+  // (Settings → business day starts at), so a restaurant open past
+  // midnight doesn't see its sales reset to zero at 12:00 AM. Falls
+  // back to plain midnight if no custom start time is set.
+  function businessDayStartTimestamp(businessDayStart) {
+    const [h, m] = (businessDayStart || '00:00').split(':').map(Number);
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(h || 0, m || 0, 0, 0);
+    if (now < start) start.setDate(start.getDate() - 1); // still "yesterday's" business day
+    return Timestamp.fromDate(start);
+  }
+
   function listenTodayOrders(cb) {
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    return col.orders.where('createdAt', '>=', Timestamp.fromDate(start)).onSnapshot(
-      snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-      err => console.error('today orders listen', err)
-    );
+    getSettings().then(settings => {
+      const startTs = businessDayStartTimestamp(settings.businessDayStart);
+      col.orders.where('createdAt', '>=', startTs).onSnapshot(
+        snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+        err => console.error('today orders listen', err)
+      );
+    });
   }
 
   // Creates an order. A "held" order is just a saved cart — no payment taken yet,
@@ -199,6 +220,26 @@ const DB = (() => {
   // that need the raw, restaurant-scoped orders collection reference.
   function ordersRef() { return col.orders; }
 
+  // Data retention: permanently deletes orders older than `days`. Only
+  // called when the admin has explicitly turned this on in Settings —
+  // it is destructive and NOT reversible, so callers should always
+  // encourage a PDF backup first. Batches in chunks of 400 to stay
+  // under Firestore's 500-writes-per-batch limit.
+  async function pruneOldOrders(days) {
+    const cutoff = Timestamp.fromDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+    let deleted = 0;
+    while (true) {
+      const snap = await col.orders.where('createdAt', '<', cutoff).limit(400).get();
+      if (snap.empty) break;
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      deleted += snap.docs.length;
+      if (snap.docs.length < 400) break;
+    }
+    return deleted;
+  }
+
   /* ---------------- Staff (users) management ---------------- */
   function listenStaffUsers(restaurantId, cb) {
     return top.users.where('restaurantId', '==', restaurantId).onSnapshot(
@@ -212,6 +253,18 @@ const DB = (() => {
   }
   function updateUserRole(uid, role) { return top.users.doc(uid).update({ role }); }
   function setUserActive(uid, active) { return top.users.doc(uid).update({ active }); }
+  // Admin-provisioned account: writes the profile doc using the ADMIN's
+  // own authenticated session (this module's `db`), not the new staff
+  // member's — matches firestore.rules clause (3) for /users/{uid} create.
+  function adminCreateStaff(uid, { name, email, role }) {
+    return top.users.doc(uid).set({
+      name, email, role,
+      active: true,
+      restaurantId: RID,
+      createdAt: FieldValue.serverTimestamp(),
+      createdVia: 'admin',
+    });
+  }
   // Removing the profile doc revokes all access for that Google account
   // (their auth account itself still exists, but without a users/{uid}
   // profile they can no longer sign in to this shop's data at all).
@@ -346,14 +399,14 @@ const DB = (() => {
   }
 
   return {
-    init, createRestaurant, ordersRef,
+    init, createRestaurant, ordersRef, pruneOldOrders,
     listenCategories, addCategory, updateCategory, deleteCategory,
     listenProducts, addProduct, updateProduct, deleteProduct,
     listenTables, addTable, setTableStatus, deleteTable,
     getSettings, saveSettings,
     listenOrdersByStatus, listenAllOrders, listenTodayOrders,
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
-    listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile,
+    listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile, adminCreateStaff,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
     seedSampleData,
   };

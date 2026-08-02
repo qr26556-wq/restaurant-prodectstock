@@ -1,7 +1,8 @@
-const CACHE_NAME = 'restpos-shell-v3';
+const CACHE_NAME = 'restpos-shell-v4';
 const SHELL_FILES = [
   'index.html',
   'login.html',
+  'diagnostics.html',
   'dashboard.html',
   'pos.html',
   'kitchen.html',
@@ -21,6 +22,7 @@ const SHELL_FILES = [
   'js/orders.js',
   'js/staff.js',
   'js/settings.js',
+  'js/diagnostics.js',
   'manifest.json',
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',

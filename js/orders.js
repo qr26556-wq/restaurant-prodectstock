@@ -15,9 +15,10 @@ function boot() {
   document.getElementById('statusFilter').addEventListener('change', e => { statusFilter = e.target.value; renderTable(); });
   document.getElementById('typeFilter').addEventListener('change', e => { typeFilter = e.target.value; renderTable(); });
   document.getElementById('dateFilter').addEventListener('change', e => { dateFilter = e.target.value; renderTable(); });
+  document.getElementById('exportPdfBtn').addEventListener('click', exportFilteredPDF);
 }
 
-function renderTable() {
+function currentFilteredList() {
   let list = [...allOrders];
   if (search) list = list.filter(o =>
     String(o.orderNumber).toLowerCase().includes(search) ||
@@ -29,6 +30,34 @@ function renderTable() {
     if (!o.createdAt?.toDate) return false;
     return o.createdAt.toDate().toISOString().slice(0, 10) === dateFilter;
   });
+  return list;
+}
+
+function exportFilteredPDF() {
+  const list = currentFilteredList();
+  if (!list.length) { RESTPOS.toast('No orders to export with the current filters.', 'error'); return; }
+  const s = window.__settings || {};
+  const head = ['Order', 'Type', 'Items', 'Total', 'Payment', 'Status', 'Time'];
+  const rows = list.map(o => [
+    `#${o.orderNumber}`,
+    o.type + (o.tableName ? ' · ' + o.tableName : ''),
+    String(o.items?.length || 0),
+    RESTPOS.money(o.total, s.currency),
+    o.paymentMethod || '—',
+    o.status,
+    RESTPOS.fmtDate(o.createdAt),
+  ]);
+  const grandTotal = list.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + (o.total || 0), 0);
+  RESTPOS.tablePDF(
+    `orders-export-${Date.now()}.pdf`,
+    `${s.restaurantName || 'Restaurant'} — Orders`,
+    head, rows,
+    `${list.length} orders · Total (excl. cancelled): ${RESTPOS.money(grandTotal, s.currency)} · Generated ${new Date().toLocaleString()}`
+  );
+}
+
+function renderTable() {
+  let list = currentFilteredList();
 
   const tbody = document.querySelector('#ordersTable tbody');
   if (!list.length) {
@@ -92,9 +121,11 @@ function openOrder(id) {
         ${statusOptions.map(s => `<option value="${s}">${s}</option>`).join('')}
       </select>` : ''}
     <button class="btn" id="printOrderBtn">${RESTPOS.icon('print')} Print</button>
+    <button class="btn" id="pdfOrderBtn">⬇ PDF</button>
   `;
 
   document.getElementById('printOrderBtn').addEventListener('click', () => printOrder(o));
+  document.getElementById('pdfOrderBtn').addEventListener('click', () => RESTPOS.receiptPDF(o, window.__settings || {}, 'order'));
   const cancelBtn = document.getElementById('cancelOrderBtn');
   if (cancelBtn) cancelBtn.addEventListener('click', () => cancelOrder(o.id));
   const statusSel = document.getElementById('statusChange');

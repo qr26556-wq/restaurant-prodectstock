@@ -215,7 +215,6 @@ function showLoginForm() {
 
 document.getElementById('forgotBtn').addEventListener('click', showResetForm);
 document.getElementById('backToLoginBtn').addEventListener('click', showLoginForm);
-document.getElementById('showJoinBtn').addEventListener('click', showJoinForm);
 document.getElementById('backFromJoinBtn').addEventListener('click', showLoginForm);
 document.getElementById('showCreateShopBtn').addEventListener('click', showCreateShopForm);
 document.getElementById('backFromCreateShopBtn').addEventListener('click', showLoginForm);

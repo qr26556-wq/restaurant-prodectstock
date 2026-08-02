@@ -80,6 +80,18 @@ service cloud.firestore {
           request.resource.data.active == true &&
           request.resource.data.restaurantId is string &&
           get(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)).data.ownerUid == request.auth.uid
+        ) ||
+        // (3) an admin directly provisions a staff account (email/password
+        // or Google, any role) for THEIR OWN restaurant — no join code
+        // needed. The uid being created can be anyone's; what's checked is
+        // that the person making the request is an active admin of the
+        // exact restaurant the new profile is being placed into.
+        (
+          isSignedIn() &&
+          myProfile().role == 'admin' && myProfile().active != false &&
+          request.resource.data.restaurantId == myRestaurantId() &&
+          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.active == true
         );
 
       allow update, delete: if isSignedIn() &&
@@ -148,12 +160,16 @@ service cloud.firestore {
 
       // --- Orders ---
       // Any active staff member of THIS shop can create orders (billing)
-      // and update status (KOT / cancel). Deleting is never allowed.
+      // and update status (KOT / cancel). Deleting is normally never
+      // allowed — the ONE exception is the admin-only, opt-in 35-day
+      // data-retention cleanup (Settings → Data & Backup), which deletes
+      // old orders in batches from the client, so an admin of this
+      // restaurant must be allowed to delete this restaurant's orders.
       match /orders/{id} {
         allow read: if isActiveStaffOf(restId);
         allow create: if isActiveStaffOf(restId);
         allow update: if isActiveStaffOf(restId);
-        allow delete: if false;
+        allow delete: if isAdminOf(restId);
       }
 
       // --- Settings ---
