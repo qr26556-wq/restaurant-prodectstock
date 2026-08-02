@@ -6,6 +6,7 @@ RESTPOS.guard(['admin'], async (user) => {
 
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('backup30Btn').addEventListener('click', downloadLast30DaysPDF);
+  document.getElementById('prefetchOfflineBtn').addEventListener('click', prefetchForOffline);
   document.getElementById('pushDayStartBtn').addEventListener('click', () => setFieldToNow('sDayStart'));
   document.getElementById('pushDayEndBtn').addEventListener('click', () => setFieldToNow('sDayEnd'));
 
@@ -161,6 +162,29 @@ async function saveSettings() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save changes';
+  }
+}
+
+async function prefetchForOffline() {
+  const btn = document.getElementById('prefetchOfflineBtn');
+  const status = document.getElementById('prefetchStatus');
+  if (!navigator.onLine) {
+    RESTPOS.toast("You're offline right now — connect to wifi first, then try this.", 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Downloading…';
+  status.textContent = '';
+  try {
+    const counts = await DB.prefetchOfflineData(30);
+    status.textContent = `Saved on this device: ${counts.orders} orders, ${counts.products} products, ${counts.categories} categories, ${counts.tables} tables. Ready to use offline.`;
+    RESTPOS.toast('Last 30 days are now saved on this device.', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not prepare offline data: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📴 Prepare last 30 days for offline use';
   }
 }
 

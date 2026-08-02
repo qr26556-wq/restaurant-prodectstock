@@ -4,7 +4,12 @@
    Type: Noto Serif SC (display) / Work Sans (body) / JetBrains Mono (data, tickets)
    Signature: the red ink "chop stamp" status badge + gold key-fret trim
    ========================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Ma+Shan+Zheng&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* Fonts: system stacks only — zero network requests, so the app looks
+   right and loads instantly whether online, offline, or on slow wifi.
+   The serif stack favors whatever CJK-influenced serif each OS ships
+   (Songti/STSong on Apple, SimSun/Microsoft YaHei on Windows, Noto Serif
+   CJK on most Linux/Android builds) for a Chinese-restaurant feel without
+   depending on a font CDN. */
 
 :root{
   --ink:#211412;
@@ -29,10 +34,10 @@
   --radius:8px;
   --radius-lg:12px;
   --shadow:0 1px 2px rgba(33,20,18,.08), 0 10px 26px -14px rgba(33,20,18,.35);
-  --font-display:'Noto Serif SC',serif;
-  --font-brand:'Ma Shan Zheng',cursive;
-  --font-body:'Work Sans',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --font-display:'Songti SC','STSong','Noto Serif CJK SC','Microsoft YaHei',Georgia,'Times New Roman',serif;
+  --font-brand:'Songti SC','STSong','Noto Serif CJK SC','Microsoft YaHei',Georgia,serif;
+  --font-body:-apple-system,'Segoe UI','Microsoft YaHei',Roboto,system-ui,sans-serif;
+  --font-mono:ui-monospace,'SFMono-Regular','Cascadia Mono',Consolas,'Courier New',monospace;
   --nav-w:230px;
   --topbar-h:60px;
   --bottomnav-h:64px;
@@ -83,10 +88,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .sidebar .brand .mark{
   width:36px;height:36px;border-radius:6px;background:var(--ember);
   border:2px solid var(--gold);
-  display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:400;color:var(--gold-soft);font-size:20px;
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:700;font-style:italic;color:var(--gold-soft);font-size:20px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
 }
-.sidebar .brand .name{font-family:var(--font-brand); font-weight:400; font-size:19px; line-height:1.2; color:#F3DFAE; letter-spacing:.02em}
+.sidebar .brand .name{font-family:var(--font-brand); font-weight:700; font-style:italic; font-size:19px; line-height:1.2; color:#F3DFAE; letter-spacing:.02em}
 .sidebar .brand .role{font-size:11px; opacity:.65; text-transform:uppercase; letter-spacing:.08em; color:var(--gold-soft)}
 .sidebar nav{flex:1; padding:14px 10px; display:flex; flex-direction:column; gap:2px; overflow-y:auto}
 .sidebar nav a{
@@ -208,7 +213,7 @@ label{font-size:12.5px; font-weight:600; color:var(--ink-soft); display:block; m
 .auth-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center;
   background:linear-gradient(180deg,#2A0E12 0%, #1B0A0C 100%); padding:20px}
 .auth-card{width:100%; max-width:380px; background:var(--paper); border-radius:var(--radius-lg); padding:32px 28px; box-shadow:var(--shadow); border-top:4px solid var(--gold)}
-.auth-card .mark{width:48px;height:48px;border-radius:6px;background:var(--ember);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:400;color:var(--gold-soft);font-size:24px;margin-bottom:14px}
+.auth-card .mark{width:48px;height:48px;border-radius:6px;background:var(--ember);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:700;font-style:italic;color:var(--gold-soft);font-size:24px;margin-bottom:14px}
 .auth-card h1{font-size:22px; margin:0 0 4px; color:var(--ember-dark)}
 .auth-card p.sub{color:var(--ink-soft); font-size:13.5px; margin:0 0 22px}
 .auth-error{background:var(--alert-soft); color:var(--alert); font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:14px; display:none}

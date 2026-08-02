@@ -4,10 +4,39 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="theme-color" content="#7A0F1F">
+<meta name="description" content="RESTPOS — sign in to run your restaurant's billing counter, kitchen tickets, tables and inventory from one app.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://restaurant-prodectstock.vercel.app/login.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RESTPOS">
+<meta property="og:title" content="RESTPOS — Restaurant POS System">
+<meta property="og:description" content="Restaurant billing, kitchen tickets and inventory in one app. Sign in to run the counter.">
+<meta property="og:url" content="https://restaurant-prodectstock.vercel.app/login.html">
+<meta property="og:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RESTPOS — Restaurant POS System">
+<meta name="twitter:description" content="Restaurant billing, kitchen tickets and inventory in one app.">
+<meta name="twitter:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
 <link rel="manifest" href="manifest.json">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "RESTPOS",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (Web, PWA)",
+  "description": "Restaurant billing, kitchen tickets, table management and inventory in one app.",
+  "url": "https://restaurant-prodectstock.vercel.app/login.html",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
 <link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
 <link rel="stylesheet" href="css/styles.css">
-<title>Sign in — RESTPOS</title>
+<title>Sign in — RESTPOS | Restaurant POS System</title>
 </head>
 <body>
   <div class="auth-wrap">
@@ -15,12 +44,17 @@
       <div class="mark">R</div>
       <h1>RESTPOS</h1>
       <p class="sub">Sign in to run the counter.</p>
+      <p class="sub" style="margin-top:-6px; font-size:12px; opacity:.75">Billing, kitchen tickets, tables and inventory — all in one place.</p>
 
       <div class="auth-tabs">
         <button type="button" class="active" data-role="admin">Admin</button>
         <button type="button" data-role="manager">Manager</button>
         <button type="button" data-role="cashier">Cashier</button>
       </div>
+
+      <p class="hint" id="tabCodeHint" style="text-align:center; margin:-6px 0 16px">
+        First time here? <button type="button" class="link-btn" id="showJoinBtnTop">Join with a staff code</button> instead of a password.
+      </p>
 
       <div class="auth-error" id="authError"></div>
 

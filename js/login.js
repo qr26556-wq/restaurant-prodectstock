@@ -179,6 +179,7 @@ const googleBtn = document.getElementById('googleBtn');
 const authDivider = document.querySelector('.auth-divider');
 const noAccountHint = document.getElementById('noAccountHint');
 const haveCodeHint = document.getElementById('haveCodeHint');
+const tabCodeHint = document.getElementById('tabCodeHint');
 const authTabs = document.querySelector('.auth-tabs');
 
 function hideAllPanels() {
@@ -188,6 +189,7 @@ function hideAllPanels() {
   googleBtn.classList.add('hidden');
   noAccountHint.classList.add('hidden');
   haveCodeHint.classList.add('hidden');
+  tabCodeHint.classList.add('hidden');
   resetForm.classList.add('hidden');
   joinForm.classList.add('hidden');
   createShopForm.classList.add('hidden');
@@ -213,6 +215,7 @@ function showLoginForm() {
   googleBtn.classList.remove('hidden');
   noAccountHint.classList.remove('hidden');
   haveCodeHint.classList.remove('hidden');
+  tabCodeHint.classList.remove('hidden');
   authTabs.classList.remove('hidden');
 }
 
@@ -222,6 +225,12 @@ document.getElementById('backFromJoinBtn').addEventListener('click', showLoginFo
 document.getElementById('showCreateShopBtn').addEventListener('click', showCreateShopForm);
 document.getElementById('backFromCreateShopBtn').addEventListener('click', showLoginForm);
 document.getElementById('showJoinBtn').addEventListener('click', showJoinForm);
+document.getElementById('showJoinBtnTop').addEventListener('click', showJoinForm);
+
+// Arrived from the landing page's "Create your restaurant" button.
+if (new URLSearchParams(location.search).get('action') === 'create') {
+  showCreateShopForm();
+}
 
 resetForm.addEventListener('submit', async (e) => {
   e.preventDefault();

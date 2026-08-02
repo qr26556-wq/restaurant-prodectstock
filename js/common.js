@@ -8,6 +8,34 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Small fixed banner so staff at the counter know why syncing looks stuck
+// when wifi drops — the app itself keeps working (cached data + Firestore's
+// own offline write queue), this is purely a confidence signal.
+(function offlineBanner() {
+  function ensureBanner() {
+    let el = document.getElementById('offlineBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'offlineBanner';
+      el.textContent = "You're offline — changes will sync once you're back online.";
+      el.style.cssText = [
+        'position:fixed', 'left:0', 'right:0', 'top:0', 'z-index:9999',
+        'background:#6E1017', 'color:#fff', 'font-size:12.5px', 'font-weight:600',
+        'text-align:center', 'padding:7px 10px', 'display:none',
+      ].join(';');
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function update() {
+    const el = ensureBanner();
+    el.style.display = navigator.onLine ? 'none' : 'block';
+  }
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  document.addEventListener('DOMContentLoaded', update);
+})();
+
 const RESTPOS = (() => {
 
   // Lightweight translation layer: covers the sidebar/bottom-nav labels

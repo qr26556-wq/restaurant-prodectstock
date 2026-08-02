@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="theme-color" content="#7A0F1F">
+<meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="assets/icons/icon-192.png">
 <link rel="stylesheet" href="css/styles.css">
@@ -124,9 +125,13 @@
         <div class="card" style="padding:18px; max-width:640px; margin-top:16px">
           <div class="section-title"><h2>Data &amp; backup</h2></div>
           <p class="hint" style="margin:0 0 14px">
-            Download a PDF backup of recent orders before they age out, and optionally let old
-            orders clean themselves up automatically.
+            The app only keeps data on this device that it has actually loaded while online —
+            it doesn't grab a date range automatically. Tap below once on wifi to pull the last
+            30 days onto this phone, so it's still there if the connection drops later.
           </p>
+          <button class="btn btn-primary" id="prefetchOfflineBtn" style="margin-bottom:6px">📴 Prepare last 30 days for offline use</button>
+          <p class="hint" id="prefetchStatus" style="margin:0 0 18px"></p>
+
           <button class="btn" id="backup30Btn" style="margin-bottom:18px">⬇ Download last 30 days (PDF)</button>
 
           <div class="field" style="display:flex; align-items:flex-start; gap:10px; border-top:1px dashed var(--line, #ddccaa); padding-top:14px">

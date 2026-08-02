@@ -4,36 +4,128 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="theme-color" content="#7A0F1F">
+<meta name="description" content="RESTPOS — restaurant billing, kitchen tickets, table management and inventory in one simple app. Free to start, works offline, no card needed.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://restaurant-prodectstock.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RESTPOS">
+<meta property="og:title" content="RESTPOS — Restaurant Billing, Kitchen & Inventory in One App">
+<meta property="og:description" content="Run your counter, kitchen tickets, tables and stock from one simple app. Free to start.">
+<meta property="og:url" content="https://restaurant-prodectstock.vercel.app/">
+<meta property="og:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RESTPOS — Restaurant Billing, Kitchen & Inventory in One App">
+<meta name="twitter:description" content="Run your counter, kitchen tickets, tables and stock from one simple app.">
+<meta name="twitter:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="assets/icons/icon-192.png">
-<title>RESTPOS</title>
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<title>RESTPOS — Restaurant Billing, Kitchen &amp; Inventory in One App</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "RESTPOS",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (Web, PWA)",
+  "description": "Restaurant billing, kitchen tickets, table management and inventory in one app.",
+  "url": "https://restaurant-prodectstock.vercel.app/",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": [
+    "Point of sale billing",
+    "Kitchen order tickets",
+    "Table management",
+    "Inventory and stock tracking",
+    "Staff roles and join codes",
+    "Works offline"
+  ]
+}
+</script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#2A0E12 0%,#1B0A0C 100%);font-family:system-ui,sans-serif;color:#FBF3E3}
-  .mark{width:52px;height:52px;border-radius:8px;background:#A6182C;border:2px solid #C9971F;display:flex;align-items:center;justify-content:center;font-family:'Ma Shan Zheng',cursive;font-weight:400;font-size:24px;color:#F7EAC5;animation:pulse 1.1s ease-in-out infinite}
-  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  :root{
+    --ink:#211412; --paper:#FBF3E3; --paper-dim:#F1E1B9; --line:#E4CE97;
+    --ember:#A6182C; --ember-dark:#7A0F1F; --gold:#C9971F; --gold-soft:#F7EAC5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Segoe UI','Microsoft YaHei',Roboto,system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+  .fdisplay{font-family:'Songti SC','STSong','Noto Serif CJK SC','Microsoft YaHei',Georgia,serif}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{width:38px;height:38px;border-radius:7px;background:var(--ember);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Songti SC','STSong',Georgia,serif;font-weight:700;font-style:italic;color:var(--gold-soft);font-size:19px}
+  .brand span{font-weight:700;font-size:17px;letter-spacing:.02em}
+  header a.btn{text-decoration:none;padding:9px 16px;border-radius:6px;border:1px solid var(--line);font-weight:600;font-size:13.5px;color:var(--ink)}
+  header a.btn.primary{background:var(--ember);border-color:var(--ember-dark);color:#fff}
+  main{max-width:1000px;margin:0 auto;padding:0 22px}
+  .hero{text-align:center;padding:64px 10px 44px}
+  .hero h1{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif;font-size:clamp(28px,5vw,44px);margin:0 0 14px;color:var(--ember-dark);line-height:1.15}
+  .hero p{font-size:16px;color:#5A4239;max-width:560px;margin:0 auto 26px}
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .cta-row a{text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:700;font-size:14.5px}
+  .cta-row a.primary{background:var(--ember);color:#fff;border:1px solid var(--ember-dark)}
+  .cta-row a.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;padding:20px 0 56px}
+  .feature{background:#fff;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:20px}
+  .feature .emoji{font-size:26px;margin-bottom:10px;display:block}
+  .feature h2{font-size:15.5px;margin:0 0 6px;color:var(--ember-dark)}
+  .feature p{font-size:13px;color:#5A4239;margin:0;line-height:1.5}
+  footer{text-align:center;padding:28px 10px;color:#8a6f5c;font-size:12.5px;border-top:1px solid var(--line)}
+  #loadingNotice{display:none;text-align:center;padding:40px 10px;color:#8a6f5c;font-size:13px}
 </style>
 </head>
 <body>
-  <div class="mark">R</div>
+  <header>
+    <div class="brand"><div class="mark">R</div><span>RESTPOS</span></div>
+    <a class="btn primary" href="login.html">Sign in</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Run your whole restaurant counter from one app</h1>
+      <p>Billing, kitchen tickets, tables and stock — in one simple, fast, works-offline app. Free to start, no card needed.</p>
+      <div class="cta-row">
+        <a class="primary" href="login.html">Sign in</a>
+        <a class="secondary" href="login.html?action=create">Create your restaurant — it's free</a>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Features">
+      <div class="feature"><span class="emoji">🧾</span><h2>Point of sale billing</h2><p>Ring up dine-in, takeaway and delivery orders in a couple of taps, with instant printable receipts.</p></div>
+      <div class="feature"><span class="emoji">🍳</span><h2>Kitchen order tickets</h2><p>Orders land on the kitchen screen the moment they're placed — no shouting across the counter.</p></div>
+      <div class="feature"><span class="emoji">🪑</span><h2>Table management</h2><p>See which tables are free or occupied at a glance, and link orders straight to a table.</p></div>
+      <div class="feature"><span class="emoji">📦</span><h2>Inventory &amp; stock</h2><p>Stock levels update automatically as items sell, so you always know what's running low.</p></div>
+      <div class="feature"><span class="emoji">👥</span><h2>Staff roles &amp; join codes</h2><p>Add cashiers and managers with their own logins, or invite them with a simple one-time code.</p></div>
+      <div class="feature"><span class="emoji">📴</span><h2>Works offline</h2><p>Keep taking orders even if the wifi drops — everything syncs automatically once you're back online.</p></div>
+    </section>
+
+    <div id="loadingNotice">Taking you to your dashboard…</div>
+  </main>
+
+  <footer>© <span id="yr"></span> RESTPOS — Restaurant POS System</footer>
+
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script>
+    // Progressive enhancement only: this page is real, crawlable content
+    // for new visitors and search engines. If someone lands here while
+    // already signed in on this device, quietly send them straight to
+    // their dashboard/POS instead of making them click "Sign in" again —
+    // logged-out visitors and crawlers just see the page above, untouched.
     auth.onAuthStateChanged(async (user) => {
-      if (!user) { window.location.href = 'login.html'; return; }
+      if (!user) return;
       try {
         const snap = await db.collection('users').doc(user.uid).get();
         if (snap.exists && snap.data().active !== false) {
+          document.getElementById('loadingNotice').style.display = 'block';
           const role = snap.data().role;
           window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
-        } else {
-          window.location.href = 'login.html';
         }
-      } catch (e) {
-        window.location.href = 'login.html';
-      }
+      } catch (e) { /* stay on the landing page */ }
     });
   </script>
 </body>

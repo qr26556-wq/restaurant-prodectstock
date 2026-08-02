@@ -398,6 +398,28 @@ const DB = (() => {
     return { skipped: false };
   }
 
+  // Deliberately "touches" every collection the app needs day-to-day so
+  // Firestore's local cache (enabled in firebase-config.js) actually holds
+  // it — persistence only caches what's been read at least once, it
+  // doesn't grab a date range on its own. Call this once while online
+  // (e.g. from a Settings button) to guarantee real offline coverage
+  // instead of hoping the right pages happened to be visited already.
+  async function prefetchOfflineData(days = 30) {
+    const cutoff = Timestamp.fromDate(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+    const [ordersSnap, productsSnap, categoriesSnap, tablesSnap] = await Promise.all([
+      col.orders.where('createdAt', '>=', cutoff).orderBy('createdAt', 'desc').get(),
+      col.products.orderBy('name', 'asc').get(),
+      col.categories.orderBy('sortOrder', 'asc').get(),
+      col.tables.orderBy('name', 'asc').get(),
+    ]);
+    return {
+      orders: ordersSnap.size,
+      products: productsSnap.size,
+      categories: categoriesSnap.size,
+      tables: tablesSnap.size,
+    };
+  }
+
   return {
     init, createRestaurant, ordersRef, pruneOldOrders,
     listenCategories, addCategory, updateCategory, deleteCategory,
@@ -408,6 +430,6 @@ const DB = (() => {
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
     listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile, adminCreateStaff,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
-    seedSampleData,
+    seedSampleData, prefetchOfflineData,
   };
 })();
