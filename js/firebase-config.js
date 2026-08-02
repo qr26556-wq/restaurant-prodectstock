@@ -1,31 +1,12 @@
-/* =========================================================
-   FIREBASE CONFIG
-   Paste your project's config below (Firebase Console →
-   Project settings → General → Your apps → SDK setup and
-   configuration). This file is safe to be public: Firebase
-   web config values are identifiers, not secrets — real
-   protection comes from Firestore Security Rules
-   (see /firestore.rules) and Authentication settings.
-   ========================================================= */
+// Firebase configuration for Al Hadi Store
 const firebaseConfig = {
-  apiKey: "AIzaSyBqyd1uEYfaWECMc4GDQcSDvIOosjspm_I",
-  authDomain: "restaurant-prodectstock-f8a0b.firebaseapp.com",
-  databaseURL: "https://restaurant-prodectstock-f8a0b-default-rtdb.firebaseio.com",
-  projectId: "restaurant-prodectstock-f8a0b",
-  storageBucket: "restaurant-prodectstock-f8a0b.firebasestorage.app",
-  messagingSenderId: "772901074180",
-  appId: "1:772901074180:web:46de8bf8808ee2afbf4c51"
+  apiKey: "AIzaSyAo4F7zUDA9mnwPdSXNZEB0B2t8CLZwG2s",
+  authDomain: "al-hadi-store-b.firebaseapp.com",
+  projectId: "al-hadi-store-b",
+  storageBucket: "al-hadi-store-b.firebasestorage.app",
+  messagingSenderId: "773720271675",
+  appId: "1:773720271675:web:01c1c2d5caa4e8a87c251e"
 };
 
+// Initialize Firebase (requires Firebase SDK <script> tags loaded in index.html first)
 firebase.initializeApp(firebaseConfig);
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-// Keep the client responsive offline / on flaky wifi (tablets at the counter).
-db.enablePersistence({ synchronizeTabs: true }).catch(() => {
-  /* multiple tabs open or unsupported browser — safe to ignore */
-});
-
-const FieldValue = firebase.firestore.FieldValue;
-const Timestamp = firebase.firestore.Timestamp;

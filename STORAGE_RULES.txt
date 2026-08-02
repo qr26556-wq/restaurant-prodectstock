@@ -1,0 +1,5 @@
+// NOTE: Ab is file ki zaroorat nahi hai.
+// Firebase Storage use karne ke liye paid "Blaze" plan chahiye hota hai,
+// is liye humne uski jagah photos ko compress kar ke seedha Firestore
+// document ke andar (base64 ke tor par) save karne ka tareeqa istemal kiya
+// hai — bina kisi billing/card ke.
