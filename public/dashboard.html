@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — ReelForge</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="brand">ReelForge<span class="dot">.</span></a>
+  <div class="nav-links">
+    <a href="pricing.html">Pricing</a>
+    <div data-auth-slot style="display:flex; gap:10px;"></div>
+  </div>
+</nav>
+
+<section class="section">
+  <div class="container">
+
+    <div class="dash-header">
+      <div>
+        <span class="mono" style="color:var(--teal);">Frame 003 — Studio</span>
+        <h1 id="welcomeHeading" style="font-size:1.9rem;">Naya video banayein</h1>
+      </div>
+      <div class="credits-pill" id="creditsPill">— credits</div>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabText" type="button">Text se video</button>
+      <button class="mode-tab" id="tabPhoto" type="button">Photo se video</button>
+    </div>
+
+    <div class="generate-panel" id="textPanel">
+      <textarea id="promptInput" placeholder="Apna scene describe karein — jaise 'ek shant jheel par sunrise, dhundhli roshni mein'"></textarea>
+      <div class="gen-actions">
+        <span class="hint">Har generation 1 credit use karta hai.</span>
+        <button class="btn btn-primary" id="generateBtn">Video generate karein</button>
+      </div>
+      <div class="status-line" id="statusLine"></div>
+    </div>
+
+    <div class="generate-panel hidden" id="photoPanel">
+      <label class="file-drop" id="fileDrop" for="photoInput">
+        <span id="fileDropText">Photo yahan daalein ya chunein (PNG/JPG/WEBP, max 12MB)</span>
+        <img id="photoPreview" class="hidden" alt="Preview" />
+      </label>
+      <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" class="hidden" />
+      <textarea id="photoPromptInput" placeholder="(Optional) Batayein photo ko kaise animate karna hai — jaise 'baalon mein halki hawa, aankhein jhapkein'"></textarea>
+      <div class="gen-actions">
+        <span class="hint">Har generation 1 credit use karta hai.</span>
+        <button class="btn btn-primary" id="generateFromPhotoBtn">Photo se video banayein</button>
+      </div>
+      <div class="status-line" id="photoStatusLine"></div>
+    </div>
+
+    <div class="section-head" style="margin-bottom:24px;">
+      <span class="mono">History</span>
+      <h2 style="font-size:1.4rem;">Aapke generate kiye gaye videos</h2>
+    </div>
+
+    <div id="historyWrap">
+      <div class="empty-state" id="emptyState">Abhi tak koi video generate nahi hua. Upar prompt likh kar shuru karein.</div>
+      <div class="history-grid" id="historyGrid"></div>
+    </div>
+
+  </div>
+</section>
+
+<footer class="footer">© 2026 ReelForge. Sabhi videos AI dwara generate kiye jaate hain.</footer>
+
+<script src="js/main.js"></script>
+<script>
+  if (requireLoginOrRedirect()) {
+    init();
+  }
+
+  async function init() {
+    await loadUser();
+    await loadHistory();
+
+    document.getElementById('generateBtn').addEventListener('click', generateVideo);
+    document.getElementById('generateFromPhotoBtn').addEventListener('click', generateVideoFromPhoto);
+
+    document.getElementById('tabText').addEventListener('click', () => switchTab('text'));
+    document.getElementById('tabPhoto').addEventListener('click', () => switchTab('photo'));
+
+    const photoInput = document.getElementById('photoInput');
+    photoInput.addEventListener('change', () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      const preview = document.getElementById('photoPreview');
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('hidden');
+      document.getElementById('fileDropText').classList.add('hidden');
+    });
+  }
+
+  function switchTab(mode) {
+    const isText = mode === 'text';
+    document.getElementById('tabText').classList.toggle('active', isText);
+    document.getElementById('tabPhoto').classList.toggle('active', !isText);
+    document.getElementById('textPanel').classList.toggle('hidden', !isText);
+    document.getElementById('photoPanel').classList.toggle('hidden', isText);
+  }
+
+  async function loadUser() {
+    try {
+      const { user } = await API.request('/auth/me');
+      document.getElementById('welcomeHeading').textContent = `${user.name}, naya video banayein`;
+      document.getElementById('creditsPill').textContent = `${user.credits} credits`;
+    } catch (err) {
+      API.clearToken();
+      window.location.href = 'login.html';
+    }
+  }
+
+  async function loadHistory() {
+    const { videos } = await API.request('/video/history');
+    const grid = document.getElementById('historyGrid');
+    const empty = document.getElementById('emptyState');
+
+    if (!videos.length) {
+      empty.classList.remove('hidden');
+      grid.classList.add('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    grid.classList.remove('hidden');
+
+    grid.innerHTML = videos.map((v) => `
+      <div class="history-item">
+        ${v.status === 'done' && v.video_url
+          ? `<video src="${v.video_url}" controls></video>`
+          : `<div style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--paper-dim);font-family:var(--font-mono);font-size:0.75rem;">${v.status.toUpperCase()}</div>`
+        }
+        <div class="meta">
+          <div class="prompt">${escapeHtml(v.prompt)}</div>
+          <div class="meta-row">
+            <span class="tag ${v.status}">${v.status}</span>
+            ${v.status === 'done' && v.video_url
+              ? `<a class="download-link" href="${v.video_url}" download="video.mp4">Download</a>`
+              : ''
+            }
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function generateVideo() {
+    const promptInput = document.getElementById('promptInput');
+    const statusLine = document.getElementById('statusLine');
+    const btn = document.getElementById('generateBtn');
+    const prompt = promptInput.value.trim();
+
+    statusLine.className = 'status-line';
+    statusLine.textContent = '';
+
+    if (!prompt) {
+      statusLine.className = 'status-line error-text';
+      statusLine.textContent = 'Pehle ek prompt likhein.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Generate ho raha hai…';
+    statusLine.textContent = 'AI model se contact kiya ja raha hai — free tier par 20-60 second lag sakte hain…';
+
+    try {
+      const data = await API.request('/video/generate', { method: 'POST', body: { prompt } });
+      statusLine.innerHTML = `Video ban gaya! <a class="download-link" href="${data.video.url}" download="video.mp4">Download</a>`;
+      document.getElementById('creditsPill').textContent = `${data.creditsRemaining} credits`;
+      promptInput.value = '';
+      await loadHistory();
+    } catch (err) {
+      statusLine.className = 'status-line error-text';
+      statusLine.textContent = err.message;
+      if (err.code === 'NO_CREDITS') {
+        setTimeout(() => { window.location.href = 'pricing.html'; }, 1800);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Video generate karein';
+    }
+  }
+
+  async function generateVideoFromPhoto() {
+    const photoInput = document.getElementById('photoInput');
+    const promptInput = document.getElementById('photoPromptInput');
+    const statusLine = document.getElementById('photoStatusLine');
+    const btn = document.getElementById('generateFromPhotoBtn');
+    const file = photoInput.files[0];
+
+    statusLine.className = 'status-line';
+    statusLine.textContent = '';
+
+    if (!file) {
+      statusLine.className = 'status-line error-text';
+      statusLine.textContent = 'Pehle ek photo chunein.';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('prompt', promptInput.value.trim());
+
+    btn.disabled = true;
+    btn.textContent = 'Generate ho raha hai…';
+    statusLine.textContent = 'Photo upload ho rahi hai aur AI model se contact kiya ja raha hai — 20-60 second lag sakte hain…';
+
+    try {
+      const data = await API.upload('/video/generate-from-image', formData);
+      statusLine.innerHTML = `Video ban gaya! <a class="download-link" href="${data.video.url}" download="video.mp4">Download</a>`;
+      document.getElementById('creditsPill').textContent = `${data.creditsRemaining} credits`;
+      photoInput.value = '';
+      promptInput.value = '';
+      document.getElementById('photoPreview').classList.add('hidden');
+      document.getElementById('fileDropText').classList.remove('hidden');
+      await loadHistory();
+    } catch (err) {
+      statusLine.className = 'status-line error-text';
+      statusLine.textContent = err.message;
+      if (err.code === 'NO_CREDITS') {
+        setTimeout(() => { window.location.href = 'pricing.html'; }, 1800);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Photo se video banayein';
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

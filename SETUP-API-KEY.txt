@@ -1,0 +1,12 @@
+ReelForge API key setup
+
+1. Open: server/.env
+2. Find:
+   POLLINATIONS_API_KEY=PASTE_YOUR_SECRET_KEY_HERE
+3. Paste your Pollinations SECRET key after =.
+4. Run:
+   cd server
+   npm install
+   npm start
+
+Do NOT paste the secret key into public HTML/JS or GitHub.

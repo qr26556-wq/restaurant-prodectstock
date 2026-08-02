@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Login — ReelForge</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="brand">ReelForge<span class="dot">.</span></a>
+  <div class="nav-links">
+    <div data-auth-slot style="display:flex; gap:10px;"></div>
+  </div>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1>Wapas swagat hai</h1>
+    <p class="sub">Apne account mein login karein.</p>
+
+    <div class="form-msg" id="msg"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Login</button>
+    </form>
+
+    <p class="switch-line"><a href="forgot-password.html">Password bhool gaye?</a></p>
+    <p class="switch-line">Account nahi hai? <a href="signup.html">Free signup karein</a></p>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('submitBtn');
+    msg.className = 'form-msg';
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    btn.disabled = true;
+    btn.textContent = 'Login ho raha hai…';
+
+    try {
+      const data = await API.request('/auth/login', { method: 'POST', body: { email, password } });
+      API.setToken(data.token);
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      showMsg(msg, err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Login';
+    }
+  });
+</script>
+</body>
+</html>

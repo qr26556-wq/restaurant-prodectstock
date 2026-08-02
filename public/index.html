@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReelForge — Text se real AI video banayein</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="brand">ReelForge<span class="dot">.</span></a>
+  <div class="nav-links">
+    <a href="index.html#how">Kaise kaam karta hai</a>
+    <a href="pricing.html">Pricing</a>
+    <div data-auth-slot style="display:flex; gap:10px;"></div>
+  </div>
+</nav>
+
+<header class="hero">
+  <span class="eyebrow mono">Frame 001 — Text to Motion</span>
+  <h1>Sirf ek line likhein.<br/>Hum use <em>real video</em> mein badal dete hain.</h1>
+  <p class="sub">ReelForge ek AI video generation studio hai — koi editing skill nahi chahiye, koi camera nahi chahiye. Bas apna idea likhein aur kuch second mein video dekhein.</p>
+  <div class="hero-actions">
+    <a href="signup.html" class="btn btn-primary">Free mein shuru karein</a>
+    <a href="pricing.html" class="btn btn-ghost">Pricing dekhein</a>
+  </div>
+
+  <div class="filmstrip">
+    <div class="filmstrip-track" id="filmTrack"></div>
+  </div>
+</header>
+
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-head">
+      <span class="mono">00:00 — Process</span>
+      <h2>Teen step, ek video</h2>
+      <p>Koi timeline editing nahi. Koi rendering setup nahi. Bas prompt se lekar playback tak.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <span class="num">01</span>
+        <h3>Prompt likhein</h3>
+        <p>Apne scene ka description dein — "sunset par udta drone shot" jaisa kuch bhi.</p>
+      </div>
+      <div class="card">
+        <span class="num">02</span>
+        <h3>AI generate karta hai</h3>
+        <p>Hamara model frame-by-frame video banata hai, real inference engine ke through.</p>
+      </div>
+      <div class="card">
+        <span class="num">03</span>
+        <h3>Download ya share karein</h3>
+        <p>MP4 seedha aapke dashboard mein — download karein ya link share karein.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="container">
+    <div class="section-head">
+      <span class="mono">00:01 — Kyun ReelForge</span>
+      <h2>Real generation, honest limits</h2>
+      <p>Hum jhoothe wade nahi karte — free plan mein limited credits hote hain kyunki AI compute ki asli cost hoti hai. Lekin jo bhi video banta hai, woh 100% real AI-generated hota hai.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <span class="num">→</span>
+        <h3>Free se shuru karein</h3>
+        <p>Signup karte hi 3 free credits milte hain — koi card zaroori nahi.</p>
+      </div>
+      <div class="card">
+        <span class="num">→</span>
+        <h3>Secure login</h3>
+        <p>Aapka data encrypted rehta hai, password kabhi plain text mein store nahi hota.</p>
+      </div>
+      <div class="card">
+        <span class="num">→</span>
+        <h3>Transparent pricing</h3>
+        <p>Jab credits khatam ho jayein, saaf-saaf plan dikhta hai — koi hidden charge nahi.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  © 2026 ReelForge. Sabhi videos AI dwara generate kiye jaate hain.
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+  // Signature filmstrip: build a looping strip of placeholder "frames" with timecodes
+  const track = document.getElementById('filmTrack');
+  const gradients = [
+    'linear-gradient(135deg,#3A2E1F,#0F0E0C)',
+    'linear-gradient(135deg,#2B3B36,#0F0E0C)',
+    'linear-gradient(135deg,#4A2A22,#0F0E0C)',
+    'linear-gradient(135deg,#33291A,#0F0E0C)',
+    'linear-gradient(135deg,#25302C,#0F0E0C)',
+    'linear-gradient(135deg,#3E2B1C,#0F0E0C)',
+  ];
+  let html = '';
+  for (let loop = 0; loop < 2; loop++) {
+    for (let i = 0; i < gradients.length; i++) {
+      const sec = String(i * 4).padStart(2, '0');
+      html += `<div class="frame" style="background-image:${gradients[i]}"><span class="tc">00:00:${sec}</span></div>`;
+    }
+  }
+  track.innerHTML = html;
+</script>
+</body>
+</html>
