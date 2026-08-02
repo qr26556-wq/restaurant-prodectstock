@@ -27,7 +27,20 @@
             <div class="field"><label>Address</label><input id="sAddress" placeholder="Street, city"></div>
             <div class="field-row">
               <div class="field"><label>Phone</label><input id="sPhone" type="tel"></div>
-              <div class="field"><label>Currency symbol</label><input id="sCurrency" maxlength="4" placeholder="₹"></div>
+              <div class="field">
+                <label>Currency</label>
+                <select id="sCurrency">
+                  <option value="₹">₹ — Indian Rupee (INR)</option>
+                  <option value="Rs">Rs — Pakistani Rupee (PKR)</option>
+                  <option value="$">$ — US Dollar (USD)</option>
+                  <option value="AED">AED — UAE Dirham</option>
+                  <option value="SAR">SAR — Saudi Riyal</option>
+                  <option value="£">£ — British Pound (GBP)</option>
+                  <option value="€">€ — Euro (EUR)</option>
+                  <option value="৳">৳ — Bangladeshi Taka (BDT)</option>
+                  <option value="Rp">Rp — Indonesian Rupiah</option>
+                </select>
+              </div>
             </div>
             <div class="field"><label>Tax percentage</label><input id="sTax" type="number" min="0" max="100" step="0.01"></div>
             <div class="field-row">
@@ -39,6 +52,17 @@
                 <label>Business day ends at</label>
                 <input id="sDayEnd" type="time">
               </div>
+            </div>
+            <div class="field">
+              <label>App language</label>
+              <select id="sLanguage">
+                <option value="en">English</option>
+                <option value="ur">اردو (Urdu)</option>
+              </select>
+              <p class="hint" style="margin:6px 0 0">
+                Translates the sidebar menu and common buttons. Support currently covers the
+                menu and shared actions — more of the app will be translated over time.
+              </p>
             </div>
             <p class="hint" style="margin:-6px 0 14px">
               If you're open past midnight, set these so "today's sales" on the dashboard keeps

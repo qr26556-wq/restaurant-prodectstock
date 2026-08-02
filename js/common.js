@@ -10,6 +10,33 @@ if ('serviceWorker' in navigator) {
 
 const RESTPOS = (() => {
 
+  // Lightweight translation layer: covers the sidebar/bottom-nav labels
+  // and the most common on-screen words. Scope is intentionally limited
+  // to these shared, high-visibility strings rather than every label on
+  // every page — translating everything would mean rewriting each page's
+  // markup with data-i18n tags one by one, which can be extended later.
+  const I18N = {
+    en: {
+      dashboard: 'Dashboard', pos: 'POS', kitchen: 'Kitchen', products: 'Products',
+      orders: 'Orders', staff: 'Staff', settings: 'Settings', logout: 'Log out',
+      admin: 'Admin', manager: 'Manager', cashier: 'Cashier',
+      save: 'Save', cancel: 'Cancel', add: 'Add', delete: 'Delete', edit: 'Edit',
+    },
+    ur: {
+      dashboard: 'ڈیش بورڈ', pos: 'پی او ایس', kitchen: 'کچن', products: 'پروڈکٹس',
+      orders: 'آرڈرز', staff: 'اسٹاف', settings: 'ترتیبات', logout: 'لاگ آؤٹ',
+      admin: 'ایڈمن', manager: 'منیجر', cashier: 'کیشیئر',
+      save: 'محفوظ کریں', cancel: 'منسوخ', add: 'شامل کریں', delete: 'حذف کریں', edit: 'ترمیم',
+    },
+  };
+  let currentLang = 'en';
+  function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+  function setLanguage(lang) {
+    currentLang = I18N[lang] ? lang : 'en';
+    document.documentElement.setAttribute('dir', currentLang === 'ur' ? 'rtl' : 'ltr');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  }
+
   const ICONS = {
     dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
     pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6"/></svg>',
@@ -85,10 +112,10 @@ const RESTPOS = (() => {
   function renderNav(activeKey, role, userLabel) {
     const items = NAV_ITEMS.filter(i => i.roles.includes(role));
     const sidebarLinks = items.map(i =>
-      `<a href="${i.href}" class="${i.key === activeKey ? 'active' : ''}">${icon(i.icon)}<span>${i.label}</span></a>`
+      `<a href="${i.href}" class="${i.key === activeKey ? 'active' : ''}">${icon(i.icon)}<span data-i18n="${i.key}">${t(i.key)}</span></a>`
     ).join('');
     const bottomLinks = items.map(i =>
-      `<a href="${i.href}" class="${i.key === activeKey ? 'active' : ''}">${icon(i.icon)}<span>${i.label.split(' ')[0]}</span></a>`
+      `<a href="${i.href}" class="${i.key === activeKey ? 'active' : ''}">${icon(i.icon)}<span data-i18n="${i.key}">${t(i.key)}</span></a>`
     ).join('');
 
     const sidebar = `
@@ -97,12 +124,12 @@ const RESTPOS = (() => {
           <div class="mark">R</div>
           <div>
             <div class="name" id="brandName">RESTPOS</div>
-            <div class="role">${ROLE_LABELS[role] || role}</div>
+            <div class="role" data-i18n="${role}">${t(role) || ROLE_LABELS[role] || role}</div>
           </div>
         </div>
         <nav>${sidebarLinks}</nav>
         <div class="bottom">
-          <button class="logout" id="logoutBtn">${icon('logout')}<span>Log out</span></button>
+          <button class="logout" id="logoutBtn">${icon('logout')}<span data-i18n="logout">${t('logout')}</span></button>
         </div>
       </aside>
       <nav class="bottomnav">${bottomLinks}</nav>`;
@@ -122,6 +149,7 @@ const RESTPOS = (() => {
         if (el) el.textContent = data.restaurantName;
       }
       window.__settings = data || {};
+      if (data && data.language) setLanguage(data.language);
     }).catch(() => {});
   }
 
@@ -266,5 +294,5 @@ const RESTPOS = (() => {
     doc.save(filename);
   }
 
-  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, receiptPDF, tablePDF, NAV_ITEMS };
+  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, receiptPDF, tablePDF, t, setLanguage, NAV_ITEMS };
 })();

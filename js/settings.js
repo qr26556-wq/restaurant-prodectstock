@@ -16,6 +16,7 @@ async function loadSettings() {
     document.getElementById('sTax').value = data.taxPercent ?? 0;
     document.getElementById('sDayStart').value = data.businessDayStart || '00:00';
     document.getElementById('sDayEnd').value = data.businessDayEnd || '23:59';
+    document.getElementById('sLanguage').value = data.language || 'en';
     document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
     document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
     document.getElementById('sAutoDelete').checked = !!data.autoDeleteOldOrders;
@@ -38,6 +39,7 @@ async function saveSettings() {
     taxPercent: parseFloat(document.getElementById('sTax').value) || 0,
     businessDayStart: document.getElementById('sDayStart').value || '00:00',
     businessDayEnd: document.getElementById('sDayEnd').value || '23:59',
+    language: document.getElementById('sLanguage').value,
     receiptFooter: document.getElementById('sFooter').value.trim(),
     receiptPaperWidth: parseInt(document.getElementById('sPaperWidth').value, 10),
     autoDeleteOldOrders: document.getElementById('sAutoDelete').checked,
@@ -48,6 +50,7 @@ async function saveSettings() {
   try {
     await DB.saveSettings(payload);
     window.__settings = { ...(window.__settings || {}), ...payload };
+    RESTPOS.setLanguage(payload.language);
     const brandEl = document.getElementById('brandName');
     if (brandEl) brandEl.textContent = payload.restaurantName;
     document.getElementById('saveHint').textContent = 'Saved.';

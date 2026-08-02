@@ -21,6 +21,33 @@ function boot() {
   document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
   document.getElementById('deleteProductBtn').addEventListener('click', deleteProduct);
   document.getElementById('catForm').addEventListener('submit', addCategory);
+  document.getElementById('catImageInput').addEventListener('change', onCatImagePicked);
+}
+
+let pendingCatImage = null; // base64 data URI, set after the picked file is resized
+
+function onCatImagePicked(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      // Resize down to a small square thumbnail so it stores cheaply and
+      // safely inside the category document (no external image host needed).
+      const size = 96;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const side = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+      pendingCatImage = canvas.toDataURL('image/jpeg', 0.72);
+      document.getElementById('catImagePreview').innerHTML = `<img src="${pendingCatImage}" style="width:100%; height:100%; object-fit:cover">`;
+    };
+    img.onerror = () => RESTPOS.toast('Could not read that image — try a different file.', 'error');
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 /* ---------------- Categories ---------------- */
@@ -32,12 +59,17 @@ function renderCategorySelects() {
   formSel.innerHTML = opts || '<option value="">Add a category first</option>';
 }
 
+function catIconHtml(c, size = 22) {
+  if (c.iconImage) return `<img src="${c.iconImage}" style="width:${size}px; height:${size}px; border-radius:5px; object-fit:cover; vertical-align:-5px; margin-right:2px">`;
+  return `${c.icon || '🍽️'} `;
+}
+
 function renderCategoryManager() {
   const host = document.getElementById('catList');
   if (!categories.length) { host.innerHTML = `<p class="hint">No categories yet — add one above.</p>`; return; }
   host.innerHTML = categories.map(c => `
     <div class="receipt-line">
-      <span class="rl-name">${c.icon || '🍽️'} ${RESTPOS.escapeHtml(c.name)} ${c.enabled === false ? '<span class="badge badge-alert">Disabled</span>' : ''}</span>
+      <span class="rl-name">${catIconHtml(c, 24)}${RESTPOS.escapeHtml(c.name)} ${c.enabled === false ? '<span class="badge badge-alert">Disabled</span>' : ''}</span>
       <span class="rl-fill"></span>
       <button class="btn btn-sm" data-toggle="${c.id}" data-enabled="${c.enabled !== false}">${c.enabled === false ? 'Enable' : 'Disable'}</button>
       <button class="btn btn-sm btn-danger" data-del="${c.id}">Delete</button>
@@ -55,11 +87,24 @@ function renderCategoryManager() {
 function addCategory(e) {
   e.preventDefault();
   const name = document.getElementById('catName').value.trim();
-  const icon = document.getElementById('catIcon').value.trim();
   if (!name) return;
-  DB.addCategory({ name, icon }).then(() => {
+  const btn = document.getElementById('addCatBtn');
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  const payload = { name };
+  if (pendingCatImage) payload.iconImage = pendingCatImage;
+  else payload.icon = '🍽️';
+  DB.addCategory(payload).then(() => {
     document.getElementById('catForm').reset();
+    document.getElementById('catImagePreview').innerHTML = '🍕';
+    pendingCatImage = null;
     RESTPOS.toast('Category added', 'success');
+  }).catch(err => {
+    console.error(err);
+    RESTPOS.toast('Could not add category: ' + err.message, 'error');
+  }).finally(() => {
+    btn.disabled = false;
+    btn.textContent = 'Add';
   });
 }
 

@@ -27,17 +27,32 @@ RESTPOS.guard(['admin'], (user) => {
     // the admin's real session (used everywhere else, including the
     // Firestore write right below) is never touched.
     const tempApp = firebase.initializeApp(firebaseConfig, 'staffCreate-' + Date.now());
+    let cred = null;
     try {
-      const cred = await tempApp.auth().createUserWithEmailAndPassword(email, password);
-      const newUid = cred.user.uid;
+      cred = await tempApp.auth().createUserWithEmailAndPassword(email, password);
+      // IMPORTANT: write the Firestore profile BEFORE signing the temp
+      // session out. If we sign out first and this write then fails, the
+      // auth account is left behind with no profile — an unrecoverable
+      // "orphan" that then wrongly reports "email already in use" on
+      // every future attempt, even though no staff member was actually
+      // created. Writing first means if it fails we can still delete the
+      // just-created account (below) and the email is free to retry.
+      await DB.adminCreateStaff(cred.user.uid, { name, email, role });
       await tempApp.auth().signOut();
-      await DB.adminCreateStaff(newUid, { name, email, role });
       RESTPOS.toast(`${name} can now sign in as ${role}.`, 'success');
       document.getElementById('addStaffForm').reset();
+      document.getElementById('newStaffRole').value = 'cashier';
     } catch (err) {
       console.error(err);
       let msg = err.message;
-      if (err.code === 'auth/email-already-in-use') msg = 'That email already has an account.';
+      if (err.code === 'auth/email-already-in-use') {
+        msg = 'That email already has an account (in this app or a previous attempt). Use a different email, or ask that person if they already have a login.';
+      } else if (cred) {
+        // The auth account was created but the profile write failed —
+        // roll it back so this email isn't stuck as an orphan.
+        try { await cred.user.delete(); } catch (_) {}
+        msg += ' — the account was rolled back, so this email is free to try again.';
+      }
       RESTPOS.toast('Could not create account: ' + msg, 'error');
     } finally {
       try { await tempApp.delete(); } catch (_) {}

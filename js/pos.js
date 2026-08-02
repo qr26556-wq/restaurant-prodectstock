@@ -68,7 +68,7 @@ function renderCategoryTabs() {
   const host = document.getElementById('catTabs');
   const tabs = [{ id: 'all', name: 'All' }, ...categories];
   host.innerHTML = tabs.map(c =>
-    `<button class="cat-tab ${activeCategory === c.id ? 'active' : ''}" data-id="${c.id}">${c.icon ? c.icon + ' ' : ''}${RESTPOS.escapeHtml(c.name)}</button>`
+    `<button class="cat-tab ${activeCategory === c.id ? 'active' : ''}" data-id="${c.id}">${c.iconImage ? `<img src="${c.iconImage}" style="width:16px;height:16px;border-radius:3px;object-fit:cover;vertical-align:-3px;margin-right:3px">` : (c.icon ? c.icon + ' ' : '')}${RESTPOS.escapeHtml(c.name)}</button>`
   ).join('');
   host.querySelectorAll('.cat-tab').forEach(btn => {
     btn.addEventListener('click', () => {
