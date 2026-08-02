@@ -1,10 +1,99 @@
+let __tables = [];
+
 RESTPOS.guard(['admin'], async (user) => {
   RESTPOS.renderNav('settings', user.role, user.name);
   await loadSettings();
 
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('backup30Btn').addEventListener('click', downloadLast30DaysPDF);
+
+  DB.listenTables(list => { __tables = list; renderTablesList(); });
+  document.getElementById('addTableBtn').addEventListener('click', addTableFromForm);
+  document.getElementById('bulkTablesBtn').addEventListener('click', generate30Tables);
 });
+
+function renderTablesList() {
+  const host = document.getElementById('tablesList');
+  const empty = document.getElementById('tablesEmpty');
+  empty.style.display = __tables.length ? 'none' : 'block';
+  host.innerHTML = __tables.map(t => `
+    <div class="tbl-manage-chip">
+      <button class="tbl-del" data-id="${t.id}" data-name="${RESTPOS.escapeHtml(t.name)}" title="Delete ${RESTPOS.escapeHtml(t.name)}">×</button>
+      <span>${RESTPOS.escapeHtml(t.name)}</span>
+      <span class="seats">${t.seats || 1} seats</span>
+    </div>
+  `).join('');
+  host.querySelectorAll('.tbl-del').forEach(btn => {
+    btn.addEventListener('click', () => deleteOneTable(btn.dataset.id, btn.dataset.name));
+  });
+}
+
+async function addTableFromForm() {
+  const nameEl = document.getElementById('tblName');
+  const seatsEl = document.getElementById('tblSeats');
+  const name = nameEl.value.trim();
+  if (!name) { RESTPOS.toast('Enter a table name.', 'error'); return; }
+  if (__tables.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+    RESTPOS.toast(`Table "${name}" already exists.`, 'error'); return;
+  }
+  const seats = parseInt(seatsEl.value, 10) || 1;
+  try {
+    await DB.addTable({ name, seats });
+    nameEl.value = '';
+    seatsEl.value = 4;
+    RESTPOS.toast(`Table "${name}" added.`, 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not add table: ' + err.message, 'error');
+  }
+}
+
+async function deleteOneTable(id, name) {
+  if (!confirm(`Delete table "${name}"? This can't be undone.`)) return;
+  try {
+    await DB.deleteTable(id);
+    RESTPOS.toast(`Table "${name}" deleted.`, 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not delete table: ' + err.message, 'error');
+  }
+}
+
+async function generate30Tables() {
+  const btn = document.getElementById('bulkTablesBtn');
+  const countEl = document.getElementById('tblBulkCount');
+  let requested = parseInt(countEl.value, 10) || 0;
+  requested = Math.max(1, Math.min(200, requested));
+
+  const existingNames = new Set(__tables.map(t => t.name.toLowerCase()));
+  // build a list of up to `requested` fresh table names (T1, T2, …), skipping ones that already exist
+  const names = [];
+  for (let i = 1; names.length < requested && i <= 1000; i++) {
+    const nm = `T${i}`;
+    if (!existingNames.has(nm.toLowerCase())) names.push(nm);
+    if (names.length >= requested) break;
+  }
+  if (!names.length) { RESTPOS.toast(`You already have ${requested}+ tables.`, 'default'); return; }
+
+  btn.disabled = true;
+  btn.textContent = `Creating ${names.length} tables…`;
+  try {
+    let created = 0;
+    for (const nm of names) {
+      const seats = created % 2 === 0 ? 4 : 2;
+      await DB.addTable({ name: nm, seats });
+      created++;
+      btn.textContent = `Creating tables… ${created}/${names.length}`;
+    }
+    RESTPOS.toast(`${created} tables created.`, 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not finish creating tables: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Generate tables';
+  }
+}
 
 async function loadSettings() {
   try {
