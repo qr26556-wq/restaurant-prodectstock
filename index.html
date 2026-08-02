@@ -33,7 +33,7 @@
   "operatingSystem": "Any (Web, PWA)",
   "description": "Restaurant billing, kitchen tickets, table management and inventory in one app.",
   "url": "https://restaurant-prodectstock.vercel.app/",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "offers": { "@type": "Offer", "price": "2500", "priceCurrency": "PKR", "description": "Starter plan, per month" },
   "featureList": [
     "Point of sale billing",
     "Kitchen order tickets",
@@ -73,12 +73,37 @@
   .feature p{font-size:13px;color:#5A4239;margin:0;line-height:1.5}
   footer{text-align:center;padding:28px 10px;color:#8a6f5c;font-size:12.5px;border-top:1px solid var(--line)}
   #loadingNotice{display:none;text-align:center;padding:40px 10px;color:#8a6f5c;font-size:13px}
+
+  .pricing{padding:16px 0 56px; text-align:center}
+  .pricing-h2{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:clamp(22px,4vw,30px); color:var(--ember-dark); margin:0 0 8px}
+  .pricing-sub{color:#5A4239; font-size:14px; margin:0 0 30px}
+  .plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; text-align:left}
+  .plan{background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px 22px; position:relative; display:flex; flex-direction:column}
+  .plan h3{font-size:15px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink)}
+  .plan .price{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:28px; font-weight:700; color:var(--ember-dark); margin-bottom:8px}
+  .plan .price span{font-size:13px; font-weight:400; color:#8a6f5c}
+  .plan-desc{font-size:13px; color:#5A4239; margin:0 0 16px}
+  .plan ul{list-style:none; margin:0 0 22px; padding:0; flex:1}
+  .plan ul li{font-size:13px; color:var(--ink); padding:6px 0 6px 22px; position:relative; border-bottom:1px dashed var(--paper-dim)}
+  .plan ul li::before{content:"✓"; position:absolute; left:0; color:var(--sage,#2C6E52); font-weight:700}
+  .plan .btn-plan{display:block; text-align:center; text-decoration:none; padding:11px; border-radius:7px; font-weight:700; font-size:13.5px; background:#fff; border:1px solid var(--line); color:var(--ink)}
+  .plan .btn-plan.secondary{background:#fff}
+  .plan.featured{border:2px solid var(--gold); box-shadow:0 10px 26px -14px rgba(122,15,31,.35)}
+  .plan.featured .btn-plan{background:var(--ember); border-color:var(--ember-dark); color:#fff}
+  .plan-badge{position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--gold); color:#3a2a06; font-size:11px; font-weight:700; padding:4px 12px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em}
+  .plan.lifetime{border:2px solid var(--ember); background:linear-gradient(180deg,#fff 0%,var(--gold-soft) 140%)}
+  .plan.lifetime .price{color:var(--ember)}
+  .plan-badge.gold-badge{background:var(--ember); color:#fff}
+  .btn-plan.lifetime-btn{background:var(--ember); border-color:var(--ember-dark); color:#fff}
 </style>
 </head>
 <body>
   <header>
     <div class="brand"><div class="mark">R</div><span>RESTPOS</span></div>
-    <a class="btn primary" href="login.html">Sign in</a>
+    <div style="display:flex; align-items:center; gap:10px">
+      <a class="btn" href="#pricing" style="border-color:var(--line); background:#fff">Pricing</a>
+      <a class="btn primary" href="login.html">Sign in</a>
+    </div>
   </header>
 
   <main>
@@ -98,6 +123,65 @@
       <div class="feature"><span class="emoji">📦</span><h2>Inventory &amp; stock</h2><p>Stock levels update automatically as items sell, so you always know what's running low.</p></div>
       <div class="feature"><span class="emoji">👥</span><h2>Staff roles &amp; join codes</h2><p>Add cashiers and managers with their own logins, or invite them with a simple one-time code.</p></div>
       <div class="feature"><span class="emoji">📴</span><h2>Works offline</h2><p>Keep taking orders even if the wifi drops — everything syncs automatically once you're back online.</p></div>
+    </section>
+
+    <section class="pricing" id="pricing" aria-label="Pricing">
+      <h2 class="pricing-h2">Simple pricing</h2>
+      <p class="pricing-sub">Pick a plan, or talk to us for a custom quote. No card needed to start.</p>
+      <div class="plans">
+        <div class="plan">
+          <h3>Starter</h3>
+          <div class="price">Rs. 2,500<span>/month</span></div>
+          <p class="plan-desc">For a single-counter shop just getting going.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders &amp; tables</li>
+            <li>Up to 3 staff accounts</li>
+            <li>Email support</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create">Get started</a>
+        </div>
+        <div class="plan featured">
+          <div class="plan-badge">Most popular</div>
+          <h3>Pro</h3>
+          <div class="price">Rs. 5,500<span>/month</span></div>
+          <p class="plan-desc">For a busy restaurant with a full team.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders, tables &amp; staff</li>
+            <li>Kitchen display + KOT tickets</li>
+            <li>Data backup &amp; retention tools</li>
+            <li>Priority support</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create">Get started</a>
+        </div>
+        <div class="plan lifetime">
+          <div class="plan-badge gold-badge">One-time</div>
+          <h3>Lifetime</h3>
+          <div class="price">Rs. 15,000<span>one-time</span></div>
+          <p class="plan-desc">Pay once, use it forever — no monthly fee, ever.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders, tables &amp; staff</li>
+            <li>Kitchen display + KOT tickets</li>
+            <li>Data backup &amp; retention tools</li>
+            <li>All future updates included</li>
+          </ul>
+          <a class="btn-plan lifetime-btn" href="mailto:you@yourrestaurant.com?subject=RESTPOS%20lifetime%20plan">Get lifetime access</a>
+        </div>
+        <div class="plan">
+          <h3>Multi-branch</h3>
+          <div class="price">Custom</div>
+          <p class="plan-desc">For chains with more than one location.</p>
+          <ul>
+            <li>Multiple branches</li>
+            <li>Centralized reporting</li>
+            <li>Onboarding &amp; training</li>
+            <li>Dedicated support</li>
+          </ul>
+          <a class="btn-plan secondary" href="mailto:you@yourrestaurant.com?subject=RESTPOS%20multi-branch%20plan">Contact us</a>
+        </div>
+      </div>
     </section>
 
     <div id="loadingNotice">Taking you to your dashboard…</div>
