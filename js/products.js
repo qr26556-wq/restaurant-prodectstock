@@ -22,6 +22,134 @@ function boot() {
   document.getElementById('deleteProductBtn').addEventListener('click', deleteProduct);
   document.getElementById('catForm').addEventListener('submit', addCategory);
   document.getElementById('catImageInput').addEventListener('change', onCatImagePicked);
+  document.getElementById('catImageAiBtn').addEventListener('click', () => {
+    document.getElementById('catImageAiRow').classList.toggle('hidden');
+    document.getElementById('catImageAiPrompt').focus();
+  });
+  document.getElementById('catImageAiGoBtn').addEventListener('click', generateCategoryImageWithAI);
+
+  document.getElementById('pImagePreview').addEventListener('click', () => document.getElementById('pImageInput').click());
+  document.getElementById('pImageGalleryBtn').addEventListener('click', () => document.getElementById('pImageInput').click());
+  document.getElementById('pImageInput').addEventListener('change', onProductImagePicked);
+  document.getElementById('pImageRemoveBtn').addEventListener('click', clearProductImage);
+  document.getElementById('pImageAiBtn').addEventListener('click', () => {
+    document.getElementById('pImageAiRow').classList.toggle('hidden');
+    document.getElementById('pImageAiPrompt').focus();
+  });
+  document.getElementById('pImageAiGoBtn').addEventListener('click', generateProductImageWithAI);
+}
+
+/* ---------------- Product image: gallery pick ---------------- */
+function resizeFileToDataUrl(file, size, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('Could not read that image — try a different file.'));
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function setProductImagePreview(dataUrl) {
+  const box = document.getElementById('pImagePreview');
+  document.getElementById('pImage').value = dataUrl || '';
+  document.getElementById('pImageRemoveBtn').style.display = dataUrl ? 'inline-flex' : 'none';
+  box.innerHTML = dataUrl ? `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:cover">` : '🍽️';
+}
+
+function clearProductImage() {
+  document.getElementById('pImageInput').value = '';
+  setProductImagePreview('');
+}
+
+async function onProductImagePicked(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const dataUrl = await resizeFileToDataUrl(file, 480, 0.75);
+    setProductImagePreview(dataUrl);
+  } catch (err) {
+    RESTPOS.toast(err.message, 'error');
+  }
+}
+
+/* ---------------- Free AI image generation (Pollinations.ai — no API key needed) ---------------- */
+function aiImageDataUrl(promptText, styleSuffix, size) {
+  const seed = Math.floor(Math.random() * 1e9);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText + styleSuffix)}?width=512&height=512&seed=${seed}&nologo=true`;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('AI image service did not respond — check your internet connection and try again.'));
+    img.src = url;
+  });
+}
+
+async function generateProductImageWithAI() {
+  const promptInput = document.getElementById('pImageAiPrompt');
+  const nameFallback = document.getElementById('pName').value.trim();
+  const prompt = promptInput.value.trim() || nameFallback;
+  if (!prompt) { RESTPOS.toast('Type a short description first (or fill Product name)', 'error'); return; }
+
+  const goBtn = document.getElementById('pImageAiGoBtn');
+  goBtn.disabled = true;
+  goBtn.textContent = 'Generating…';
+  try {
+    const dataUrl = await aiImageDataUrl(prompt, ', food photography, appetizing, restaurant menu photo', 480);
+    setProductImagePreview(dataUrl);
+    document.getElementById('pImageAiRow').classList.add('hidden');
+    RESTPOS.toast('AI image generated', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast(err.message || 'Could not generate an image', 'error');
+  } finally {
+    goBtn.disabled = false;
+    goBtn.textContent = 'Generate';
+  }
+}
+
+async function generateCategoryImageWithAI() {
+  const promptInput = document.getElementById('catImageAiPrompt');
+  const nameFallback = document.getElementById('catName').value.trim();
+  const prompt = promptInput.value.trim() || nameFallback;
+  if (!prompt) { RESTPOS.toast('Type a short description first (or fill Category name)', 'error'); return; }
+
+  const goBtn = document.getElementById('catImageAiGoBtn');
+  goBtn.disabled = true;
+  goBtn.textContent = 'Generating…';
+  try {
+    const dataUrl = await aiImageDataUrl(prompt, ', simple flat icon, minimal, restaurant menu category icon', 96);
+    pendingCatImage = dataUrl;
+    document.getElementById('catImagePreview').innerHTML = `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:cover">`;
+    document.getElementById('catImageAiRow').classList.add('hidden');
+    RESTPOS.toast('AI image generated', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast(err.message || 'Could not generate an image', 'error');
+  } finally {
+    goBtn.disabled = false;
+    goBtn.textContent = 'Generate';
+  }
 }
 
 let pendingCatImage = null; // base64 data URI, set after the picked file is resized
@@ -97,6 +225,7 @@ function addCategory(e) {
   DB.addCategory(payload).then(() => {
     document.getElementById('catForm').reset();
     document.getElementById('catImagePreview').innerHTML = '🍕';
+    document.getElementById('catImageAiRow').classList.add('hidden');
     pendingCatImage = null;
     RESTPOS.toast('Category added', 'success');
   }).catch(err => {
@@ -159,13 +288,16 @@ function openProductModal(id) {
     document.getElementById('pCost').value = p.costPrice || 0;
     document.getElementById('pStock').value = p.stock || 0;
     document.getElementById('pLowStock').value = p.lowStockThreshold ?? 5;
-    document.getElementById('pImage').value = p.imageUrl || '';
+    setProductImagePreview(p.imageUrl || '');
     document.getElementById('pDesc').value = p.description || '';
     document.getElementById('pAvailable').checked = p.available !== false;
   } else {
     document.getElementById('pLowStock').value = 5;
     document.getElementById('pAvailable').checked = true;
+    setProductImagePreview('');
   }
+  document.getElementById('pImageAiRow').classList.add('hidden');
+  document.getElementById('pImageAiPrompt').value = '';
   RESTPOS.openModal('productModal');
 }
 
