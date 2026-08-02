@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#1B1B18">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+<title>POS Billing — RESTPOS</title>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="navHost"></div>
+    <div class="main">
+      <div class="topbar">
+        <h1>POS Billing</h1>
+        <div class="who" id="whoLabel"></div>
+      </div>
+      <div class="page">
+        <div class="pos-wrap">
+
+          <!-- Product side -->
+          <div>
+            <div class="search-box" style="margin-bottom:12px; max-width:420px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="productSearch" placeholder="Search products…">
+            </div>
+            <div class="cat-tabs" id="catTabs"></div>
+            <div class="product-grid" id="productGrid"><p class="hint">Loading products…</p></div>
+          </div>
+
+          <!-- Cart side -->
+          <div class="card cart-panel">
+            <div class="cart-head">
+              <div class="order-type-toggle">
+                <button data-type="dine-in" class="active">Dine In</button>
+                <button data-type="takeaway">Takeaway</button>
+                <button data-type="delivery">Delivery</button>
+              </div>
+              <div class="table-pick" id="tablePickRow">
+                <button class="btn btn-sm" id="chooseTableBtn" style="flex:1">Choose table</button>
+              </div>
+              <div id="customerRow" style="display:none; margin-top:10px" class="field-row">
+                <input id="custName" placeholder="Customer name">
+                <input id="custPhone" placeholder="Phone">
+              </div>
+            </div>
+
+            <div class="cart-items" id="cartItems">
+              <div class="cart-empty">Cart is empty.<br>Tap a product to add it.</div>
+            </div>
+
+            <div class="cart-totals">
+              <div class="receipt-line"><span class="rl-name">Subtotal</span><span class="rl-fill"></span><span class="rl-val" id="subtotalVal">₹0.00</span></div>
+              <div class="receipt-line">
+                <span class="rl-name">Discount</span><span class="rl-fill"></span>
+                <input id="discountInput" type="number" min="0" value="0" style="width:70px;padding:3px 6px;text-align:right;font-family:var(--font-mono)">
+              </div>
+              <div class="receipt-line"><span class="rl-name">Tax (<span id="taxPct">5</span>%)</span><span class="rl-fill"></span><span class="rl-val" id="taxVal">₹0.00</span></div>
+              <div class="grand"><span>Total</span><span id="grandVal">₹0.00</span></div>
+
+              <div class="pay-methods">
+                <button data-pm="cash" class="active">Cash</button>
+                <button data-pm="card">Card</button>
+                <button data-pm="online">Online</button>
+              </div>
+            </div>
+            <div class="cart-actions">
+              <button class="btn" id="clearCartBtn" style="flex:1">Clear</button>
+              <button class="btn" id="holdOrderBtn" style="flex:1">Hold</button>
+              <button class="btn btn-primary" id="completeOrderBtn" style="flex:2">Complete order</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table picker modal -->
+  <div class="modal-backdrop" id="tableModal">
+    <div class="modal">
+      <div class="modal-head"><h2>Choose a table</h2><button class="icon-btn" onclick="RESTPOS.closeModal('tableModal')">✕</button></div>
+      <div class="modal-body">
+        <div class="table-grid" id="tableGrid"><p class="hint">Loading tables…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt / success modal -->
+  <div class="modal-backdrop" id="receiptModal">
+    <div class="modal">
+      <div class="modal-head"><h2>Order complete</h2><button class="icon-btn" id="closeReceiptBtn">✕</button></div>
+      <div class="modal-body">
+        <div id="printArea" class="w80">
+          <div class="receipt-preview" id="receiptContent"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <select id="printWidth" style="width:auto">
+          <option value="w80">80mm printer</option>
+          <option value="w58">58mm printer</option>
+        </select>
+        <button class="btn" id="printReceiptBtn">🖨 Print receipt</button>
+        <button class="btn" id="pdfReceiptBtn">⬇ PDF</button>
+        <button class="btn btn-primary" id="newOrderBtn">New order</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/pos.js"></script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+// (or paste into Firebase Console → Firestore Database → Rules)
+//
+// MULTI-TENANT MODEL: every restaurant/shop is its own document at
+// /restaurants/{restaurantId}, with its own categories/products/tables/
+// orders/settings living in subcollections underneath it. One shop's data
+// is a structurally separate branch of the database from another's — a
+// query or rule for restaurant A can never touch restaurant B's data.
+//
+// Every staff member has a doc at /users/{uid} with "role" (admin/manager/
+// cashier), "active" (bool) and "restaurantId" (which shop they belong to).
+// A Google/Firebase Auth account on its own grants nothing: access always
+// depends on this profile, and the profile always ties the person to
+// exactly one shop.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function myRestaurantId() {
+      return myProfile().restaurantId;
+    }
+    // Active staff of THIS specific restaurant (restId is the path segment
+    // of whatever subcollection is being accessed).
+    function isActiveStaffOf(restId) {
+      return isSignedIn() && myProfile().active != false && myRestaurantId() == restId;
+    }
+    function isAdminOf(restId) {
+      return isActiveStaffOf(restId) && myProfile().role == 'admin';
+    }
+    function isManagerOf(restId) {
+      return isActiveStaffOf(restId) && myProfile().role == 'manager';
+    }
+    function isAdminOrManagerOf(restId) {
+      return isAdminOf(restId) || isManagerOf(restId);
+    }
+
+    // --- Staff accounts (top-level, keyed by uid) ---
+    // Anyone signed in may read their OWN profile (needed to resolve role
+    // + restaurantId right after login). An admin may read/write every
+    // profile that belongs to THEIR OWN restaurant only — never another
+    // shop's staff.
+    //
+    // A brand-new profile can be created in exactly two self-serve ways,
+    // neither of which lets anyone grant themselves access to an EXISTING
+    // shop's data:
+    //  1) Redeeming a valid, unused staff code for the exact role +
+    //     restaurantId that code carries (see /staffCodes below).
+    //  2) Creating a brand-new restaurant they immediately become the sole
+    //     admin of (see /restaurants below) — this can never collide with
+    //     an existing shop's data, it only ever creates a fresh, empty one.
+    match /users/{uid} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid ||
+        (myProfile().role == 'admin' && myProfile().active != false && myRestaurantId() == resource.data.restaurantId)
+      );
+
+      allow create: if
+        // (1) redeeming a staff join code
+        (
+          isSignedIn() && request.auth.uid == uid &&
+          request.resource.data.active == true &&
+          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.joinedViaCode is string &&
+          get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.used == false &&
+          get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.role == request.resource.data.role &&
+          get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.restaurantId == request.resource.data.restaurantId
+        ) ||
+        // (2) becoming the founding admin of a brand-new restaurant
+        (
+          isSignedIn() && request.auth.uid == uid &&
+          request.resource.data.role == 'admin' &&
+          request.resource.data.active == true &&
+          request.resource.data.restaurantId is string &&
+          get(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)).data.ownerUid == request.auth.uid
+        ) ||
+        // (3) an admin directly provisions a staff account (email/password
+        // or Google, any role) for THEIR OWN restaurant — no join code
+        // needed. The uid being created can be anyone's; what's checked is
+        // that the person making the request is an active admin of the
+        // exact restaurant the new profile is being placed into.
+        (
+          isSignedIn() &&
+          myProfile().role == 'admin' && myProfile().active != false &&
+          request.resource.data.restaurantId == myRestaurantId() &&
+          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.active == true
+        );
+
+      allow update, delete: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == resource.data.restaurantId;
+    }
+
+    // --- Staff join codes (top-level, keyed by the code itself) ---
+    // A brand-new joiner has no profile yet, so they must be able to read
+    // a code by its plain code string alone (before they belong to any
+    // shop) to validate it. Only an admin may generate a code, and only
+    // for their OWN restaurant. The one thing a brand-new user may change
+    // on a code is flipping it from unused to used, marking themselves as
+    // the redeemer — nothing else about it can change, and it can never be
+    // flipped back.
+    match /staffCodes/{code} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == request.resource.data.restaurantId;
+      allow update: if
+        (isSignedIn() && myProfile().role == 'admin' && myProfile().active != false && myRestaurantId() == resource.data.restaurantId) ||
+        (
+          isSignedIn() &&
+          resource.data.used == false &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedByName', 'usedAt']) &&
+          request.resource.data.used == true &&
+          request.resource.data.usedBy == request.auth.uid
+        );
+      allow delete: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == resource.data.restaurantId;
+    }
+
+    // --- Restaurants (shops) ---
+    match /restaurants/{restId} {
+      // Only staff of that exact restaurant may read its shop document.
+      allow read: if isActiveStaffOf(restId);
+      // Anyone signed in may create a brand-new restaurant, but only as
+      // its own declared owner — this is how self-serve "Create your shop"
+      // works. It can never overwrite an existing restaurant (create-only).
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isAdminOf(restId);
+      allow delete: if false;
+
+      // --- Catalog: categories & products ---
+      match /categories/{id} {
+        allow read: if isActiveStaffOf(restId);
+        allow write: if isAdminOrManagerOf(restId);
+      }
+      match /products/{id} {
+        allow read: if isActiveStaffOf(restId);
+        // Cashiers may update ONLY the stock field (automatic decrement
+        // happens client-side inside the order transaction).
+        allow create, delete: if isAdminOrManagerOf(restId);
+        allow update: if isAdminOrManagerOf(restId) ||
+          (isActiveStaffOf(restId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']));
+      }
+
+      // --- Restaurant tables ---
+      match /tables/{id} {
+        allow read: if isActiveStaffOf(restId);
+        allow create, delete: if isAdminOrManagerOf(restId);
+        allow update: if isActiveStaffOf(restId); // cashiers flip available/occupied while billing
+      }
+
+      // --- Orders ---
+      // Any active staff member of THIS shop can create orders (billing)
+      // and update status (KOT / cancel). Deleting is normally never
+      // allowed — the ONE exception is the admin-only, opt-in 35-day
+      // data-retention cleanup (Settings → Data & Backup), which deletes
+      // old orders in batches from the client, so an admin of this
+      // restaurant must be allowed to delete this restaurant's orders.
+      match /orders/{id} {
+        allow read: if isActiveStaffOf(restId);
+        allow create: if isActiveStaffOf(restId);
+        allow update: if isActiveStaffOf(restId);
+        allow delete: if isAdminOf(restId);
+      }
+
+      // --- Settings ---
+      match /settings/{id} {
+        allow read: if isActiveStaffOf(restId);
+        allow write: if isAdminOrManagerOf(restId);
+      }
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
