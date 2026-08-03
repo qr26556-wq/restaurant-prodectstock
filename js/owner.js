@@ -87,7 +87,7 @@ document.getElementById('genLicenseBtn').addEventListener('click', async () => {
     RESTPOS.toast('Code generated — send it to the customer.', 'success');
   } catch (err) {
     console.error(err);
-    RESTPOS.toast('Could not generate a code: ' + err.message, 'error');
+    RESTPOS.toast('Could not generate a code: ' + (err.code === 'permission-denied' ? 'Permission denied. Sign in with the authorized owner Google account (qraza2376@gmail.com).' : err.message), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '⚡ Generate code';

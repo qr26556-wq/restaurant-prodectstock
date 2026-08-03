@@ -1,281 +1,237 @@
 rules_version = '2';
 
-// Deploy with: firebase deploy --only firestore:rules
-// (or paste into Firebase Console → Firestore Database → Rules)
-//
-// MULTI-TENANT MODEL: every restaurant/shop is its own document at
-// /restaurants/{restaurantId}, with its own categories/products/tables/
-// orders/settings living in subcollections underneath it. One shop's data
-// is a structurally separate branch of the database from another's — a
-// query or rule for restaurant A can never touch restaurant B's data.
-//
-// Every staff member has a doc at /users/{uid} with "role" (admin/manager/
-// cashier), "active" (bool) and "restaurantId" (which shop they belong to).
-// A Google/Firebase Auth account on its own grants nothing: access always
-// depends on this profile, and the profile always ties the person to
-// exactly one shop.
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
-    function myProfile() {
+
+    function profile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    function myRestaurantId() {
-      return myProfile().restaurantId;
+
+    function rootId() {
+      return profile().restaurantId;
     }
-    // Active staff of THIS specific restaurant (restId is the path segment
-    // of whatever subcollection is being accessed).
-    function isBranchOfMyRestaurant(restId) {
-      return isSignedIn() && exists(/databases/$(database)/documents/restaurants/$(myRestaurantId())/branches/$(restId)) &&
-        get(/databases/$(database)/documents/restaurants/$(myRestaurantId())/branches/$(restId)).data.active != false;
+
+    function activeUser() {
+      return signedIn() && profile().active != false;
     }
-    function isActiveStaffOf(restId) {
-      return isSignedIn() && myProfile().active != false &&
-        (myRestaurantId() == restId || isBranchOfMyRestaurant(restId));
+
+    function ownerOf(restId) {
+      return signedIn() &&
+        get(/databases/$(database)/documents/restaurants/$(restId)).data.ownerUid == request.auth.uid;
     }
-    function isOwnerOfRestaurant(restId) {
-      return isSignedIn() && get(/databases/$(database)/documents/restaurants/$(restId)).data.ownerUid == request.auth.uid;
-    }
-    function hasActiveMultiBranchPlan(rootId) {
-      let planData = get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data;
-      return planData.plan == 'multibranch_lifetime' ||
+
+    function staffOf(restId) {
+      return activeUser() && (
+        profile().restaurantId == restId ||
         (
-          planData.plan == 'multibranch' &&
-          planData.planExpiresAt != null &&
-          planData.planExpiresAt > request.time
+          profile().branchId == restId &&
+          get(/databases/$(database)/documents/restaurants/$(profile().restaurantId)/branches/$(restId)).data.active != false
+        ) ||
+        ownerOf(restId)
+      );
+    }
+
+    function adminOf(restId) {
+      return staffOf(restId) &&
+        (profile().role == 'admin' || ownerOf(restId));
+    }
+
+    function managerOf(restId) {
+      return staffOf(restId) && profile().role == 'manager';
+    }
+
+    function adminManagerOf(restId) {
+      return adminOf(restId) || managerOf(restId);
+    }
+
+    function multiSettings(restId) {
+      return get(/databases/$(database)/documents/restaurants/$(restId)/settings/general).data;
+    }
+
+    function multiActive(restId) {
+      return multiSettings(restId).plan == 'multibranch_lifetime' ||
+        (
+          multiSettings(restId).plan == 'multibranch' &&
+          multiSettings(restId).planExpiresAt != null &&
+          multiSettings(restId).planExpiresAt > request.time
         );
     }
-    function isAdminOf(restId) {
-      return (isActiveStaffOf(restId) && myProfile().role == 'admin') || isOwnerOfRestaurant(restId);
-    }
-    function isManagerOf(restId) {
-      return isActiveStaffOf(restId) && myProfile().role == 'manager';
-    }
-    function isAdminOrManagerOf(restId) {
-      return isAdminOf(restId) || isManagerOf(restId);
+
+    function productOwner() {
+      return signedIn() && request.auth.token.email == 'qraza2376@gmail.com';
     }
 
-    // --- Staff accounts (top-level, keyed by uid) ---
-    // Anyone signed in may read their OWN profile (needed to resolve role
-    // + restaurantId right after login). An admin may read/write every
-    // profile that belongs to THEIR OWN restaurant only — never another
-    // shop's staff.
-    //
-    // A brand-new profile can be created in exactly two self-serve ways,
-    // neither of which lets anyone grant themselves access to an EXISTING
-    // shop's data:
-    //  1) Redeeming a valid, unused staff code for the exact role +
-    //     restaurantId that code carries (see /staffCodes below).
-    //  2) Creating a brand-new restaurant they immediately become the sole
-    //     admin of (see /restaurants below) — this can never collide with
-    //     an existing shop's data, it only ever creates a fresh, empty one.
+    // ---------------------------------------------------------
+    // USER PROFILES
+    // ---------------------------------------------------------
     match /users/{uid} {
-      allow read: if isSignedIn() && (
+      allow read: if signedIn() && (
         request.auth.uid == uid ||
-        (myProfile().role == 'admin' && myProfile().active != false && myRestaurantId() == resource.data.restaurantId)
+        (profile().role == 'admin' && profile().active != false &&
+         profile().restaurantId == resource.data.restaurantId)
       );
 
+      // New admin owner, normal staff code, or reusable branch code.
       allow create: if
-        // (1) redeeming a staff join code
         (
-          isSignedIn() && request.auth.uid == uid &&
+          signedIn() && request.auth.uid == uid &&
           request.resource.data.active == true &&
-          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.role == 'admin' &&
+          request.resource.data.restaurantId is string &&
+          get(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)).data.ownerUid == request.auth.uid
+        )
+        ||
+        (
+          signedIn() && request.auth.uid == uid &&
+          request.resource.data.active == true &&
+          request.resource.data.role in ['admin','manager','cashier'] &&
           request.resource.data.joinedViaCode is string &&
           get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.used == false &&
           get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.role == request.resource.data.role &&
           get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.restaurantId == request.resource.data.restaurantId
-        ) ||
-        // (1b) reusable branch code: creates a cashier profile tied to the
-        // owner's restaurant and the specific branch. The same branch code
-        // may be used on multiple devices.
+        )
+        ||
         (
-          isSignedIn() && request.auth.uid == uid &&
+          signedIn() && request.auth.uid == uid &&
           request.resource.data.active == true &&
-          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.role == 'cashier' &&
           request.resource.data.joinedViaBranchCode is string &&
           get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.active == true &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.restaurantId == request.resource.data.restaurantId &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.branchId == request.resource.data.activeBranchId &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.role == request.resource.data.role
-        ) ||
-        // (2) becoming the founding admin of a brand-new restaurant
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.rootRestaurantId == request.resource.data.restaurantId &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.branchRestaurantId == request.resource.data.branchId
+        )
+        ||
         (
-          isSignedIn() && request.auth.uid == uid &&
-          request.resource.data.role == 'admin' &&
-          request.resource.data.active == true &&
-          request.resource.data.restaurantId is string &&
-          get(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)).data.ownerUid == request.auth.uid
-        ) ||
-        // (3) an admin directly provisions a staff account (email/password
-        // or Google, any role) for THEIR OWN restaurant — no join code
-        // needed. The uid being created can be anyone's; what's checked is
-        // that the person making the request is an active admin of the
-        // exact restaurant the new profile is being placed into.
-        (
-          isSignedIn() &&
-          myProfile().role == 'admin' && myProfile().active != false &&
-          request.resource.data.restaurantId == myRestaurantId() &&
-          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          signedIn() && profile().role == 'admin' && profile().active != false &&
+          request.resource.data.restaurantId == rootId() &&
+          request.resource.data.role in ['admin','manager','cashier'] &&
           request.resource.data.active == true
         );
 
-      allow update: if
-        (isSignedIn() &&
-          myProfile().role == 'admin' && myProfile().active != false &&
-          myRestaurantId() == resource.data.restaurantId)
-        ||
-        (isSignedIn() && request.auth.uid == uid &&
-          request.resource.data.restaurantId == resource.data.restaurantId &&
-          request.resource.data.active == true &&
-          request.resource.data.joinedViaBranchCode is string &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.active == true &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.restaurantId == resource.data.restaurantId &&
-          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.branchId == request.resource.data.activeBranchId &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeBranchId','joinedViaBranchCode','updatedAt','name','email','uid','role','active','restaurantId'])) ;
-
-      allow delete: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == resource.data.restaurantId;
+      allow update, delete: if signedIn() &&
+        profile().role == 'admin' && profile().active != false &&
+        profile().restaurantId == resource.data.restaurantId;
     }
 
-    // --- Staff join codes (top-level, keyed by the code itself) ---
-    // A brand-new joiner has no profile yet, so they must be able to read
-    // a code by its plain code string alone (before they belong to any
-    // shop) to validate it. Only an admin may generate a code, and only
-    // for their OWN restaurant. The one thing a brand-new user may change
-    // on a code is flipping it from unused to used, marking themselves as
-    // the redeemer — nothing else about it can change, and it can never be
-    // flipped back.
+    // ---------------------------------------------------------
+    // STAFF CODES (one-time)
+    // ---------------------------------------------------------
     match /staffCodes/{code} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == request.resource.data.restaurantId;
+      allow read: if signedIn();
+      allow create: if signedIn() && profile().role == 'admin' &&
+        profile().active != false && rootId() == request.resource.data.restaurantId;
+
       allow update: if
-        (isSignedIn() && myProfile().role == 'admin' && myProfile().active != false && myRestaurantId() == resource.data.restaurantId) ||
-        (
-          isSignedIn() &&
-          resource.data.used == false &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedByName', 'usedAt']) &&
-          request.resource.data.used == true &&
-          request.resource.data.usedBy == request.auth.uid
-        );
-      allow delete: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == resource.data.restaurantId;
+        (signedIn() && profile().role == 'admin' && profile().active != false &&
+         rootId() == resource.data.restaurantId)
+        ||
+        (signedIn() && resource.data.used == false &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used','usedBy','usedByName','usedAt']) &&
+         request.resource.data.used == true && request.resource.data.usedBy == request.auth.uid);
+
+      allow delete: if signedIn() && profile().role == 'admin' &&
+        profile().active != false && rootId() == resource.data.restaurantId;
     }
 
-    // --- Reusable branch access codes (top-level, keyed by code) ---
-    // A branch code is NOT the paid activation code. It only connects a
-    // Google account to one branch. It is intentionally reusable so the
-    // same branch can run on multiple phones/computers.
+    // ---------------------------------------------------------
+    // REUSABLE BRANCH CODES (multiple devices)
+    // ---------------------------------------------------------
     match /branchCodes/{code} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && myProfile().role == 'admin' &&
-        myProfile().active != false &&
-        myRestaurantId() == resource.data.restaurantId;
-      allow create: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == request.resource.data.restaurantId &&
-        hasActiveMultiBranchPlan(request.resource.data.restaurantId);
-      allow update: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == resource.data.restaurantId;
-      allow delete: if isSignedIn() &&
-        myProfile().role == 'admin' && myProfile().active != false &&
-        myRestaurantId() == resource.data.restaurantId;
+      allow get: if signedIn();
+      allow list: if signedIn() && profile().role == 'admin' && profile().active != false && rootId() == resource.data.rootRestaurantId;
+
+      allow create: if signedIn() && profile().role == 'admin' &&
+        profile().active != false && rootId() == request.resource.data.rootRestaurantId &&
+        multiActive(rootId());
+
+      allow update: if signedIn() && profile().role == 'admin' &&
+        profile().active != false && rootId() == resource.data.rootRestaurantId;
+
+      allow delete: if signedIn() && profile().role == 'admin' &&
+        profile().active != false && rootId() == resource.data.rootRestaurantId;
     }
 
-    // --- License / plan activation codes (top-level, keyed by the code) ---
-    // Used to unlock a paid plan (Pro / Lifetime) after a manual JazzCash
-    // or bank transfer — there's no payment gateway wired up, so a human
-    // (the product owner) has to confirm the payment arrived. Generating a
-    // code is therefore restricted to that one owner account by email, the
-    // same way a restaurant admin generates staffCodes for their own shop.
-    // Any signed-in admin can fetch ONE code by its exact id to check it
-    // before redeeming, but only the owner can list every code that's ever
-    // been generated (that list reveals which shops paid for what).
-    function isOwner() {
-      return isSignedIn() && request.auth.token.email == 'qraza2376@gmail.com';
-    }
+    // ---------------------------------------------------------
+    // PLAN / ACTIVATION CODES
+    // ---------------------------------------------------------
     match /licenseCodes/{code} {
-      allow get: if isSignedIn();
-      allow list: if isOwner();
-      allow create: if isOwner();
-      allow update: if isSignedIn() &&
+      allow get: if signedIn();
+      allow list: if productOwner();
+      allow create: if productOwner();
+
+      allow update: if signedIn() &&
         resource.data.used == false &&
-        isAdminOf(request.resource.data.usedByRestaurantId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedByRestaurantId', 'usedByRestaurantName', 'usedAt']) &&
+        adminOf(request.resource.data.usedByRestaurantId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'used','usedByRestaurantId','usedByRestaurantName','usedAt'
+        ]) &&
         request.resource.data.used == true;
-      allow delete: if isOwner() && resource.data.used == false;
+
+      allow delete: if productOwner() && resource.data.used == false;
     }
 
-    // --- Restaurants (shops) ---
+    // ---------------------------------------------------------
+    // RESTAURANTS
+    // ---------------------------------------------------------
     match /restaurants/{restId} {
-      // Only staff of that exact restaurant may read its shop document.
-      allow read: if isActiveStaffOf(restId) || isOwnerOfRestaurant(restId);
-      // Anyone signed in may create a brand-new restaurant, but only as
-      // its own declared owner — this is how self-serve "Create your shop"
-      // works. It can never overwrite an existing restaurant (create-only).
-      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isAdminOf(restId);
+      allow read: if staffOf(restId) || ownerOf(restId);
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if adminOf(restId);
       allow delete: if false;
 
-      // --- Multi-branch metadata (owned by the main restaurant owner) ---
       match /branches/{branchId} {
-        allow read: if isAdminOf(restId) && restId == myRestaurantId();
-        allow create: if isAdminOf(restId) && restId == myRestaurantId() && hasActiveMultiBranchPlan(restId);
-        allow update, delete: if isAdminOf(restId) && restId == myRestaurantId();
+        allow read: if adminOf(restId) && restId == rootId();
+        allow create: if adminOf(restId) && restId == rootId() &&
+          multiActive(restId) && request.resource.data.active == true;
+        allow update: if adminOf(restId) && restId == rootId() &&
+          multiActive(restId);
+        allow delete: if adminOf(restId) && restId == rootId();
       }
 
-      // --- Catalog: categories & products ---
       match /categories/{id} {
-        allow read: if isActiveStaffOf(restId);
-        allow write: if isAdminOrManagerOf(restId);
+        allow read: if staffOf(restId);
+        allow create, update, delete: if adminManagerOf(restId);
       }
+
       match /products/{id} {
-        allow read: if isActiveStaffOf(restId);
-        // Cashiers may update ONLY the stock field (automatic decrement
-        // happens client-side inside the order transaction).
-        allow create, delete: if isAdminOrManagerOf(restId);
-        allow update: if isAdminOrManagerOf(restId) ||
-          (isActiveStaffOf(restId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']));
+        allow read: if staffOf(restId);
+        allow create, delete: if adminManagerOf(restId);
+        allow update: if adminManagerOf(restId) ||
+          (staffOf(restId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock']));
       }
 
-      // --- Restaurant tables ---
       match /tables/{id} {
-        allow read: if isActiveStaffOf(restId);
-        allow create, delete: if isAdminOrManagerOf(restId);
-        allow update: if isActiveStaffOf(restId); // cashiers flip available/occupied while billing
+        allow read: if staffOf(restId);
+        allow create, delete: if adminManagerOf(restId);
+        allow update: if staffOf(restId);
       }
 
-      // --- Orders ---
-      // Any active staff member of THIS shop can create orders (billing)
-      // and update status (KOT / cancel). Deleting is normally never
-      // allowed — the ONE exception is the admin-only, opt-in 35-day
-      // data-retention cleanup (Settings → Data & Backup), which deletes
-      // old orders in batches from the client, so an admin of this
-      // restaurant must be allowed to delete this restaurant's orders.
       match /orders/{id} {
-        allow read: if isActiveStaffOf(restId);
-        allow create: if isActiveStaffOf(restId);
-        allow update: if isActiveStaffOf(restId);
-        allow delete: if isAdminOf(restId);
+        allow read, create, update: if staffOf(restId);
+        allow delete: if adminOf(restId);
       }
 
-      // --- Settings ---
+      match /sales/{id} {
+        allow read, create: if staffOf(restId);
+        allow update: if adminManagerOf(restId);
+        allow delete: if adminOf(restId);
+      }
+
+      match /customers/{id} {
+        allow read, create, update: if staffOf(restId);
+        allow delete: if adminManagerOf(restId);
+      }
+
       match /settings/{id} {
-        allow read: if isActiveStaffOf(restId);
-        allow write: if isAdminOrManagerOf(restId);
+        allow read: if staffOf(restId);
+        allow write: if adminManagerOf(restId);
       }
     }
 
-    // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;
     }

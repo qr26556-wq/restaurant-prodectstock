@@ -1,0 +1,14 @@
+Firestore rules included for:
+- Multi-Branch 30 Days: settings/general.plan = multibranch and planExpiresAt > request.time
+- Multi-Branch Lifetime: settings/general.plan = multibranch_lifetime
+- Branch records under restaurants/{restaurantId}/branches/{branchId}
+- Branch-specific data under restaurants/{restaurantId}/branches/{branchId}/{collection}/{docId}
+- Products, stock, tables, orders, sales, customers and settings permissions
+- Admin / manager / cashier staff permissions
+- License and staff code security
+
+IMPORTANT:
+1. Firebase Console -> Firestore Database -> Rules.
+2. Paste/deploy firestore.rules from this ZIP and Publish.
+3. The UI must store the selected branchId and use it in its Firestore paths/queries. Rules alone do not create a branch switcher or move existing data between branches.
+4. The Branch Code is an application feature; a branch document should contain a unique branchCode. Do not treat a Branch Code as a Firebase Auth password.
