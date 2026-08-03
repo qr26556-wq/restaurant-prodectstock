@@ -35,9 +35,13 @@ async function loadBranches() {
     card.style.display = branches.length >= 1 ? '' : 'none';
     list.innerHTML = branches.map(b => `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line,#ead9ad)">
-        <div style="flex:1"><strong>${RESTPOS.escapeHtml(b.name)}</strong>${b.isMain ? ' <span class="badge badge-slate">Main</span>' : ''}${!b.isMain ? (b.branchCode ? `<div class="hint mono" style="margin-top:4px">Branch Code: <strong>${RESTPOS.escapeHtml(b.branchCode)}</strong> <button class="btn btn-sm" data-branch-action="copy-code" data-branch-code="${RESTPOS.escapeHtml(b.branchCode)}" type="button">Copy</button></div>` : `<div style="margin-top:4px"><button class="btn btn-sm" data-branch-action="generate-code" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" type="button">Generate branch code</button></div>`) : ''}</div>
+        <div style="flex:1"><strong>${RESTPOS.escapeHtml(b.name)}</strong>${b.isMain ? ' <span class="badge badge-slate">Main</span>' : ''}</div>
         ${b.id === DB.activeRestaurantId() ? '<span class="badge badge-sage">Current</span>' : `<button class="btn btn-sm" data-branch-action="switch" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Switch</button>`}
-        ${!b.isMain ? `<button class="btn btn-sm" data-branch-action="edit" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" data-branch-name="${RESTPOS.escapeHtml(b.name)}">Edit</button><button class="btn btn-sm" data-branch-action="delete" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Delete</button>` : ''}
+        ${!b.isMain ? `
+          <span class="mono" style="font-size:12px;letter-spacing:1px">Code: ${RESTPOS.escapeHtml(b.branchCode || '—')}</span>
+          ${b.branchCode ? `<button class="btn btn-sm" data-branch-action="copy" data-branch-code="${RESTPOS.escapeHtml(b.branchCode)}">Copy code</button>` : `<button class="btn btn-sm" data-branch-action="generate" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Generate code</button>`}
+          <button class="btn btn-sm" data-branch-action="edit" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" data-branch-name="${RESTPOS.escapeHtml(b.name)}">Edit</button>
+          <button class="btn btn-sm" data-branch-action="delete" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Delete</button>` : ''}
       </div>`).join('');
   } catch (err) {
     console.error(err);
@@ -66,18 +70,22 @@ async function handleBranchAction(e) {
   const btn = e.target.closest('[data-branch-action]');
   if (!btn) return;
   const id = btn.dataset.branchId;
-  if (btn.dataset.branchAction === 'generate-code') {
+  if (btn.dataset.branchAction === 'generate') {
     try {
-      const code = await DB.ensureBranchCode(btn.dataset.branchId);
+      const branchId = btn.dataset.branchId;
+      const code = await DB.getBranchCode(branchId);
       await loadBranches();
-      RESTPOS.toast('Branch code generated: ' + code, 'success');
-    } catch (err) { RESTPOS.toast('Could not generate branch code: ' + err.message, 'error'); }
+      RESTPOS.toast(code ? `Branch Code: ${code}` : 'Could not generate Branch Code.', code ? 'success' : 'error');
+    } catch (err) {
+      RESTPOS.toast('Could not generate Branch Code: ' + err.message, 'error');
+    }
     return;
   }
-  if (btn.dataset.branchAction === 'copy-code') {
+  if (btn.dataset.branchAction === 'copy') {
     const code = btn.dataset.branchCode || '';
-    try { await navigator.clipboard.writeText(code); RESTPOS.toast('Branch code copied.', 'success'); }
-    catch (_) { prompt('Copy this branch code:', code); }
+    if (!code) { RESTPOS.toast('No Branch Code exists for this branch.', 'error'); return; }
+    try { await navigator.clipboard.writeText(code); RESTPOS.toast('Branch Code copied.', 'success'); }
+    catch (_) { prompt('Copy this Branch Code:', code); }
     return;
   }
   if (btn.dataset.branchAction === 'switch') DB.switchBranch(id);

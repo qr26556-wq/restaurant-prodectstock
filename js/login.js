@@ -59,9 +59,9 @@ auth.getRedirectResult().then(async (result) => {
     } else if (pendingAction === 'branchJoin') {
       const code = sessionStorage.getItem('restpos_pending_branch_code') || '';
       sessionStorage.removeItem('restpos_pending_branch_code');
-      const role = await DB.redeemBranchCode(code, result.user);
-      RESTPOS.toast('Branch connected! Welcome.', 'success');
-      window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
+      const result = await DB.redeemBranchCode(code, result.user);
+      RESTPOS.toast(`Connected to ${result.branchName}.`, 'success');
+      window.location.href = 'pos.html';
     } else {
       await completeSignIn(result.user);
     }
@@ -243,36 +243,27 @@ document.getElementById('joinGoogleBtn').addEventListener('click', async () => {
   }
 });
 
-// ---- Join a branch with a reusable branch code ----
+// ---- Join a branch with a reusable Branch Code ----
 document.getElementById('branchJoinGoogleBtn').addEventListener('click', async () => {
   hideError();
   const code = document.getElementById('branchJoinCode').value.trim().toUpperCase();
-  if (!code) { showError('Enter the branch code.'); return; }
+  if (!code) { showError('Enter the Branch Code first.'); return; }
   const btn = document.getElementById('branchJoinGoogleBtn');
   if (btn.disabled) return;
   btn.disabled = true;
   sessionStorage.setItem('restpos_pending_google_action', 'branchJoin');
   sessionStorage.setItem('restpos_pending_branch_code', code);
-  let cred;
   try {
-    cred = await signInGoogleSmart();
+    const cred = await signInGoogleSmart();
     if (!cred) return;
     sessionStorage.removeItem('restpos_pending_google_action');
     sessionStorage.removeItem('restpos_pending_branch_code');
+    const result = await DB.redeemBranchCode(code, cred.user);
+    RESTPOS.toast(`Connected to ${result.branchName}.`, 'success');
+    window.location.href = 'pos.html';
   } catch (err) {
     console.error(err);
-    btn.disabled = false;
-    if (err.code === 'auth/popup-closed-by-user') return;
-    showError('Could not sign in with Google. Please try again.');
-    return;
-  }
-  try {
-    const role = await DB.redeemBranchCode(code, cred.user);
-    RESTPOS.toast('Branch connected! Welcome.', 'success');
-    window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
-  } catch (err) {
-    console.error(err);
-    showError(err.message || 'Could not connect this branch.');
+    showError(err.message || 'Could not join this branch.');
     await auth.signOut();
   } finally {
     btn.disabled = false;
@@ -288,8 +279,6 @@ const googleBtn = document.getElementById('googleBtn');
 const authDivider = document.querySelector('.auth-divider');
 const noAccountHint = document.getElementById('noAccountHint');
 const haveCodeHint = document.getElementById('haveCodeHint');
-const haveBranchCodeHint = document.getElementById('haveBranchCodeHint');
-const branchJoinForm = document.getElementById('branchJoinForm');
 const tabCodeHint = document.getElementById('tabCodeHint');
 const authTabs = document.querySelector('.auth-tabs');
 
@@ -300,7 +289,6 @@ function hideAllPanels() {
   googleBtn.classList.add('hidden');
   noAccountHint.classList.add('hidden');
   haveCodeHint.classList.add('hidden');
-  haveBranchCodeHint.classList.add('hidden');
   tabCodeHint.classList.add('hidden');
   resetForm.classList.add('hidden');
   joinForm.classList.add('hidden');
@@ -332,7 +320,6 @@ function showLoginForm() {
   googleBtn.classList.remove('hidden');
   noAccountHint.classList.remove('hidden');
   haveCodeHint.classList.remove('hidden');
-  haveBranchCodeHint.classList.remove('hidden');
   tabCodeHint.classList.remove('hidden');
   authTabs.classList.remove('hidden');
 }
@@ -344,7 +331,7 @@ document.getElementById('showCreateShopBtn').addEventListener('click', showCreat
 document.getElementById('backFromCreateShopBtn').addEventListener('click', showLoginForm);
 document.getElementById('showJoinBtn').addEventListener('click', showJoinForm);
 document.getElementById('showJoinBtnTop').addEventListener('click', showJoinForm);
-document.getElementById('showBranchJoinBtn').addEventListener('click', showBranchJoinForm);
+document.getElementById('showBranchJoinBtnTop').addEventListener('click', showBranchJoinForm);
 document.getElementById('backFromBranchJoinBtn').addEventListener('click', showLoginForm);
 
 // Arrived from the landing page's "Create your restaurant" button.

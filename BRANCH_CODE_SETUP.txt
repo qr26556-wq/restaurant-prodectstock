@@ -1,26 +1,17 @@
-BRANCH CODE / MULTI-DEVICE SETUP
+BRANCH CODE SYSTEM
 
-1. Owner opens Settings -> Multi-Branch Cloud.
-2. Add a new branch. A reusable Branch Code is generated automatically.
-3. Existing branches without a code show "Generate branch code".
-4. Branch Code is NOT the paid activation code.
-5. Activation code controls the paid Multi-Branch plan:
-   - Multi-Branch (30 days)
-   - Multi-Branch Lifetime
-6. Branch Code connects a device/user to a specific branch.
-7. The same Branch Code can be used on multiple devices.
-8. On a new phone/computer:
-   - Open login page
-   - Choose "Join a branch"
-   - Enter Branch Code
-   - Continue with Google
-   - The device is connected to that branch
-9. New branch-code users are created as Cashier by default.
-10. Existing users in the same restaurant keep their existing role while switching to the coded branch.
-11. Products, stock, tables, orders, sales and customers are stored under the selected branch's Firebase restaurant document.
-12. Owner can still use Switch and All Branches from the main account.
+1. Owner activates Multi-Branch 30 Days or Lifetime.
+2. Settings -> Multi-Branch Cloud -> Add branch.
+3. A reusable Branch Code is generated automatically (example BR-7K3PXMAB).
+4. Copy that code and use it on each phone/computer that should work in that branch.
+5. On a new device: Login -> Join a branch code -> enter Branch Code -> Continue with Google.
+6. The device is assigned cashier access to that branch and the same Branch Code can be used on multiple devices.
+7. Branch Code is NOT the paid Activation Code. Activation Code activates the plan; Branch Code connects a device/user to a branch.
+8. Branch staff cannot switch to another branch. The owner/admin can switch branches.
+9. All branch Products/Stock/Orders/Sales/Customers/Tables are stored under that branch's restaurant document.
+10. Deploy firestore.rules before testing.
 
-IMPORTANT:
-- Deploy firestore.rules after updating the app.
-- Branch codes are reusable. They are not one-time activation codes.
-- Paid activation codes remain one-time use.
+PLAN CODES
+- Multi-branch 30 days: multibranch, expiry is checked in Firebase Rules.
+- Multi-branch Lifetime: multibranch_lifetime, no expiry.
+- Plan code generation is owner-only. The owner page currently authorizes qraza2376@gmail.com.
