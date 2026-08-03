@@ -135,9 +135,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .bottomnav a{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
   color:rgba(251,243,227,.6); text-decoration:none; font-size:10.5px; font-weight:600;
+  min-width:0;
 }
 .bottomnav a svg{width:20px;height:20px}
 .bottomnav a.active{color:var(--gold)}
+.bottomnav a span, .bottomnav .mobile-logout span{
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+}
 
 @media (max-width:900px){
   .sidebar{display:none}
@@ -433,20 +437,27 @@ html, body { overflow-y:auto; overscroll-behavior-y:auto; touch-action:auto; }
 .main, .page { min-height:100vh; }
 
 
-/* Google/email account logout: keep a visible sign-out action on mobile too. */
+/* Google/email account logout: keep a visible sign-out action on mobile too.
+   Matches .bottomnav a styling exactly (flex:1, stacked icon+label) so it
+   renders as an equal-width item alongside Dashboard/POS/.../Settings instead
+   of getting squeezed to near-invisible width. */
 .mobile-logout {
   display: none;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
   border: 0;
   background: transparent;
-  color: inherit;
-  font: inherit;
+  color: rgba(251,243,227,.6);
+  font-size: 10.5px;
+  font-weight: 600;
   cursor: pointer;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 8px;
+  gap: 3px;
+  padding: 0;
 }
 .mobile-logout svg { width: 20px; height: 20px; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .mobile-logout { display: flex; }
 }
