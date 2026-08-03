@@ -17,6 +17,58 @@ function hideError() {
   document.getElementById('authError').style.display = 'none';
 }
 
+// Shared Google sign-in: falls back to a redirect if a popup can't be
+// used (blocked, or an in-app/embedded browser). Also guards against the
+// classic "auth/cancelled-popup-request" caused by a double-tap firing
+// two overlapping signInWithPopup() calls.
+const popupFallbackCodes = [
+  'auth/cancelled-popup-request',
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+];
+async function signInGoogleSmart() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    return await auth.signInWithPopup(provider);
+  } catch (err) {
+    if (popupFallbackCodes.includes(err.code)) {
+      await auth.signInWithRedirect(provider); // navigates away; result picked up after reload
+      return null;
+    }
+    throw err;
+  }
+}
+// After a redirect round-trip, finish whichever flow was in progress.
+auth.getRedirectResult().then(async (result) => {
+  if (!result || !result.user) return;
+  const pendingAction = sessionStorage.getItem('restpos_pending_google_action');
+  sessionStorage.removeItem('restpos_pending_google_action');
+  try {
+    if (pendingAction === 'createShop') {
+      const shopName = sessionStorage.getItem('restpos_pending_shop_name') || '';
+      sessionStorage.removeItem('restpos_pending_shop_name');
+      await DB.createRestaurant(shopName, result.user);
+      RESTPOS.toast('Your restaurant is ready!', 'success');
+      window.location.href = 'dashboard.html';
+    } else if (pendingAction === 'join') {
+      const code = sessionStorage.getItem('restpos_pending_join_code') || '';
+      sessionStorage.removeItem('restpos_pending_join_code');
+      const role = await DB.redeemStaffCode(code, result.user);
+      RESTPOS.toast('Welcome! Your account is ready.', 'success');
+      window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
+    } else {
+      await completeSignIn(result.user);
+    }
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Could not finish signing in. Please try again.');
+    await auth.signOut();
+  }
+}).catch((err) => {
+  console.error(err);
+  showError('Could not sign in with Google. Please try again.');
+});
+
 // If already signed in, skip straight to the right screen.
 auth.onAuthStateChanged(async (user) => {
   if (!user) return;
@@ -89,10 +141,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 document.getElementById('googleBtn').addEventListener('click', async () => {
   hideError();
   const btn = document.getElementById('googleBtn');
+  if (btn.disabled) return;
   btn.disabled = true;
+  sessionStorage.setItem('restpos_pending_google_action', 'signIn');
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    const cred = await auth.signInWithPopup(provider);
+    const cred = await signInGoogleSmart();
+    if (!cred) return; // redirect flow in progress; page is navigating away
+    sessionStorage.removeItem('restpos_pending_google_action');
     await completeSignIn(cred.user);
   } catch (err) {
     console.error(err);
@@ -114,11 +169,16 @@ document.getElementById('createShopGoogleBtn').addEventListener('click', async (
   const shopName = document.getElementById('shopName').value.trim();
   if (!shopName) { showError('Enter your restaurant\'s name.'); return; }
   const btn = document.getElementById('createShopGoogleBtn');
+  if (btn.disabled) return;
   btn.disabled = true;
+  sessionStorage.setItem('restpos_pending_google_action', 'createShop');
+  sessionStorage.setItem('restpos_pending_shop_name', shopName);
   let cred;
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    cred = await auth.signInWithPopup(provider);
+    cred = await signInGoogleSmart();
+    if (!cred) return; // redirect flow in progress; page is navigating away
+    sessionStorage.removeItem('restpos_pending_google_action');
+    sessionStorage.removeItem('restpos_pending_shop_name');
   } catch (err) {
     console.error(err);
     btn.disabled = false;
@@ -145,11 +205,16 @@ document.getElementById('joinGoogleBtn').addEventListener('click', async () => {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
   if (!code) { showError('Enter the code your admin gave you.'); return; }
   const btn = document.getElementById('joinGoogleBtn');
+  if (btn.disabled) return;
   btn.disabled = true;
+  sessionStorage.setItem('restpos_pending_google_action', 'join');
+  sessionStorage.setItem('restpos_pending_join_code', code);
   let cred;
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    cred = await auth.signInWithPopup(provider);
+    cred = await signInGoogleSmart();
+    if (!cred) return; // redirect flow in progress; page is navigating away
+    sessionStorage.removeItem('restpos_pending_google_action');
+    sessionStorage.removeItem('restpos_pending_join_code');
   } catch (err) {
     console.error(err);
     btn.disabled = false;

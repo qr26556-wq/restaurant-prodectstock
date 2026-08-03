@@ -19,14 +19,50 @@ auth.onAuthStateChanged((user) => {
   unsubCodes = DB.listenLicenseCodes(renderLicenseTable);
 });
 
-document.getElementById('ownerGoogleBtn').addEventListener('click', async () => {
+// Google sign-in that survives mobile / embedded-webview quirks:
+// - the button is disabled immediately so a double-tap can't fire two
+//   overlapping popups (that's what causes auth/cancelled-popup-request)
+// - if a popup still can't open (blocked, or an in-app browser that
+//   doesn't support window.open properly), we fall back to a redirect
+async function signInGoogleSmart() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  const popupFallbackCodes = [
+    'auth/cancelled-popup-request',
+    'auth/popup-blocked',
+    'auth/operation-not-supported-in-this-environment',
+  ];
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithPopup(provider);
+  } catch (err) {
+    if (popupFallbackCodes.includes(err.code)) {
+      await auth.signInWithRedirect(provider); // page will navigate away and back
+      return;
+    }
+    throw err;
+  }
+}
+
+const ownerGoogleBtn = document.getElementById('ownerGoogleBtn');
+ownerGoogleBtn.addEventListener('click', async () => {
+  if (ownerGoogleBtn.disabled) return; // extra guard against double-tap
+  ownerGoogleBtn.disabled = true;
+  const originalText = ownerGoogleBtn.textContent;
+  ownerGoogleBtn.textContent = 'Signing in…';
+  try {
+    await signInGoogleSmart();
   } catch (err) {
     console.error(err);
     RESTPOS.toast('Sign-in failed: ' + err.message, 'error');
+  } finally {
+    ownerGoogleBtn.disabled = false;
+    ownerGoogleBtn.textContent = originalText;
   }
+});
+
+// If we came back from a signInWithRedirect(), pick up the result here.
+auth.getRedirectResult().catch((err) => {
+  console.error(err);
+  RESTPOS.toast('Sign-in failed: ' + err.message, 'error');
 });
 
 document.getElementById('ownerSignOutBtn').addEventListener('click', () => auth.signOut());
