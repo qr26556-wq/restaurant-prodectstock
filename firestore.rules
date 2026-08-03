@@ -126,6 +126,30 @@ service cloud.firestore {
         myRestaurantId() == resource.data.restaurantId;
     }
 
+    // --- License / plan activation codes (top-level, keyed by the code) ---
+    // Used to unlock a paid plan (Pro / Lifetime) after a manual JazzCash
+    // or bank transfer — there's no payment gateway wired up, so a human
+    // (the product owner) has to confirm the payment arrived. Generating a
+    // code is therefore restricted to that one owner account by email, the
+    // same way a restaurant admin generates staffCodes for their own shop.
+    // Any signed-in admin can fetch ONE code by its exact id to check it
+    // before redeeming, but only the owner can list every code that's ever
+    // been generated (that list reveals which shops paid for what).
+    function isOwner() {
+      return isSignedIn() && request.auth.token.email == 'qraza2376@gmail.com';
+    }
+    match /licenseCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if isOwner();
+      allow create: if isOwner();
+      allow update: if isSignedIn() &&
+        resource.data.used == false &&
+        isAdminOf(request.resource.data.usedByRestaurantId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedByRestaurantId', 'usedByRestaurantName', 'usedAt']) &&
+        request.resource.data.used == true;
+      allow delete: if isOwner() && resource.data.used == false;
+    }
+
     // --- Restaurants (shops) ---
     match /restaurants/{restId} {
       // Only staff of that exact restaurant may read its shop document.

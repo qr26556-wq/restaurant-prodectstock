@@ -1,6 +1,9 @@
 let __tables = [];
+let __settings = {};
+let __currentUser = null;
 
 RESTPOS.guard(['admin'], async (user) => {
+  __currentUser = user;
   RESTPOS.renderNav('settings', user.role, user.name);
   await loadSettings();
 
@@ -9,6 +12,7 @@ RESTPOS.guard(['admin'], async (user) => {
   document.getElementById('prefetchOfflineBtn').addEventListener('click', prefetchForOffline);
   document.getElementById('pushDayStartBtn').addEventListener('click', () => setFieldToNow('sDayStart'));
   document.getElementById('pushDayEndBtn').addEventListener('click', () => setFieldToNow('sDayEnd'));
+  document.getElementById('redeemLicenseBtn').addEventListener('click', redeemLicense);
 
   DB.listenTables(list => { __tables = list; renderTablesList(); });
   document.getElementById('addTableBtn').addEventListener('click', addTableFromForm);
@@ -106,6 +110,54 @@ function setFieldToNow(fieldId) {
   RESTPOS.toast('Set to current time — tap "Save changes" to apply.', 'default');
 }
 
+function renderPlanStatus() {
+  const el = document.getElementById('planStatus');
+  const plan = __settings.plan;
+  if (!plan || plan === 'starter') {
+    el.textContent = "You're on the free Starter plan. Enter an activation code below to upgrade.";
+    return;
+  }
+  if (plan === 'lifetime') {
+    el.innerHTML = `<span class="badge badge-sage">Lifetime</span> Active — never expires. Thanks for your support!`;
+    return;
+  }
+  if (plan === 'pro') {
+    const exp = __settings.planExpiresAt;
+    const expDate = exp && exp.toDate ? exp.toDate() : (exp ? new Date(exp) : null);
+    const expired = expDate && expDate.getTime() < Date.now();
+    if (expired) {
+      el.innerHTML = `<span class="badge badge-alert">Pro — expired</span> Your Pro plan ran out on ${expDate.toLocaleDateString()}. Enter a new code to renew.`;
+    } else {
+      el.innerHTML = `<span class="badge badge-sage">Pro</span> Active${expDate ? ' — renews/expires ' + expDate.toLocaleDateString() : ''}.`;
+    }
+    return;
+  }
+  el.textContent = `Plan: ${plan}`;
+}
+
+async function redeemLicense() {
+  const btn = document.getElementById('redeemLicenseBtn');
+  const input = document.getElementById('licenseCodeInput');
+  const code = input.value.trim().toUpperCase();
+  if (!code) { RESTPOS.toast('Enter the activation code first.', 'error'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Activating…';
+  try {
+    const result = await DB.redeemLicenseCode(code, __currentUser.restaurantId, __settings.restaurantName);
+    RESTPOS.toast(`${PLAN_NAMES[result.plan] || result.plan} activated!`, 'success');
+    input.value = '';
+    await loadSettings();
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not activate: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Activate';
+  }
+}
+
+const PLAN_NAMES = { pro: 'Pro', lifetime: 'Lifetime' };
+
 async function loadSettings() {
   try {
     const data = await DB.getSettings();
@@ -120,6 +172,8 @@ async function loadSettings() {
     document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
     document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
     document.getElementById('sAutoDelete').checked = !!data.autoDeleteOldOrders;
+    __settings = data;
+    renderPlanStatus();
   } catch (err) {
     console.error(err);
     RESTPOS.toast('Could not load settings: ' + err.message, 'error');

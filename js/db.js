@@ -14,6 +14,7 @@ const DB = (() => {
     users: db.collection('users'),
     staffCodes: db.collection('staffCodes'),
     restaurants: db.collection('restaurants'),
+    licenseCodes: db.collection('licenseCodes'),
   };
   let RID = null;
   let col = {}; // categories/products/tables/orders/settings — set by init()
@@ -349,6 +350,71 @@ const DB = (() => {
     });
   }
 
+  const OWNER_EMAIL = 'qraza2376@gmail.com';
+
+  // --- Plan / billing activation codes ---
+  // Only the product owner (see firestore.rules) can successfully create
+  // one of these — this function will simply fail with a permission error
+  // for anyone else, which is the intended behaviour, not a bug.
+  async function generateLicenseCode(plan) {
+    let code;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      code = genCode();
+      const existing = await top.licenseCodes.doc(code).get();
+      if (!existing.exists) break;
+    }
+    const durationDays = plan === 'pro' ? 30 : null; // Lifetime never expires
+    await top.licenseCodes.doc(code).set({
+      plan, durationDays, used: false,
+      usedByRestaurantId: null, usedByRestaurantName: null, usedAt: null,
+      createdByEmail: OWNER_EMAIL,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return code;
+  }
+
+  // Owner-only: every code ever generated, newest first.
+  function listenLicenseCodes(cb) {
+    return top.licenseCodes.onSnapshot(
+      snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        cb(list);
+      },
+      err => console.error('licenseCodes listen', err)
+    );
+  }
+
+  // A restaurant admin redeems a code they received after paying. Marks
+  // the code used AND stamps the restaurant's own settings with the new
+  // plan in the same transaction, so the two can never drift apart.
+  async function redeemLicenseCode(code, restaurantId, restaurantName) {
+    const codeRef = top.licenseCodes.doc(code);
+    const settingsRef = col.settings.doc('general');
+    return db.runTransaction(async (tx) => {
+      const codeSnap = await tx.get(codeRef);
+      if (!codeSnap.exists) throw new Error("That code doesn't look right. Double-check it with us.");
+      const codeData = codeSnap.data();
+      if (codeData.used) throw new Error('That code has already been used. Ask us for a new one.');
+
+      const expiresAt = codeData.durationDays
+        ? Timestamp.fromDate(new Date(Date.now() + codeData.durationDays * 24 * 60 * 60 * 1000))
+        : null;
+
+      tx.update(codeRef, {
+        used: true, usedByRestaurantId: restaurantId, usedByRestaurantName: restaurantName || null,
+        usedAt: FieldValue.serverTimestamp(),
+      });
+      tx.set(settingsRef, {
+        plan: codeData.plan,
+        planExpiresAt: expiresAt,
+        planActivatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      return { plan: codeData.plan, expiresAt };
+    });
+  }
+
   /* ---------------- Seed sample data (admin, one-time) ---------------- */
   async function seedSampleData() {
     const catSnap = await col.categories.limit(1).get();
@@ -430,6 +496,7 @@ const DB = (() => {
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
     listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile, adminCreateStaff,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
+    generateLicenseCode, listenLicenseCodes, redeemLicenseCode, OWNER_EMAIL,
     seedSampleData, prefetchOfflineData,
   };
 })();

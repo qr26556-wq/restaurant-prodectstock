@@ -178,7 +178,42 @@ const RESTPOS = (() => {
       }
       window.__settings = data || {};
       if (data && data.language) setLanguage(data.language);
+      if (role === 'admin' || role === 'manager') showPlanReminder(data || {});
     }).catch(() => {});
+  }
+
+  // Nothing in the app is ever locked or hidden for an expired Pro plan —
+  // this is a working POS a real shop depends on mid-shift, and this
+  // product has no automated recurring billing to fall back on if a
+  // payment is late. All an expired/soon-to-expire plan does is show a
+  // quiet, dismissible reminder so the admin knows to renew when it's
+  // convenient, never a wall blocking the counter.
+  function showPlanReminder(settings) {
+    if (settings.plan !== 'pro' || !settings.planExpiresAt) return;
+    const exp = settings.planExpiresAt.toDate ? settings.planExpiresAt.toDate() : new Date(settings.planExpiresAt);
+    const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86400000);
+    if (daysLeft > 5) return; // not worth mentioning yet
+
+    const key = 'planReminderDismissed:' + exp.getTime();
+    if (sessionStorage.getItem(key)) return;
+
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed', 'left:0', 'right:0', 'bottom:0', 'z-index:9998',
+      'background:var(--gold-soft,#F7EAC5)', 'color:var(--ember-dark,#7A0F1F)',
+      'font-size:12.5px', 'font-weight:600', 'text-align:center', 'padding:9px 40px 9px 12px',
+      'border-top:2px solid var(--gold,#C9971F)',
+    ].join(';');
+    el.innerHTML = daysLeft <= 0
+      ? `Your Pro plan has expired. <a href="settings.html" style="color:inherit; text-decoration:underline">Renew in Settings</a> when you get a chance.`
+      : `Your Pro plan expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. <a href="settings.html" style="color:inherit; text-decoration:underline">Renew in Settings</a>.`;
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:18px; cursor:pointer; color:inherit; line-height:1';
+    closeBtn.addEventListener('click', () => { el.remove(); sessionStorage.setItem(key, '1'); });
+    el.appendChild(closeBtn);
+    el.style.position = 'fixed';
+    document.body.appendChild(el);
   }
 
   // Small live clock shown in the topbar of every page (next to the
