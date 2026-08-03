@@ -22,3 +22,13 @@ LIFETIME MULTI-BRANCH
 - Generate code and send it to the customer.
 - The customer redeems the code in Settings.
 - Multi-branch Lifetime never expires and allows branch management without a 30-day expiry.
+
+
+MULTI-DEVICE BEHAVIOR
+- The Multi-branch plan belongs to the restaurant's Firebase Cloud settings, not to one phone.
+- Multi-branch (30 days) stays available on every device that signs into the same Firebase/Google restaurant account while the plan is unexpired.
+- Multi-branch Lifetime stays available on every authorized device and never expires.
+- Branch selection is stored per device, so a phone can select Branch A while a computer selects Branch B.
+- All branch data is stored in Firebase Cloud; changing devices does not move or delete the data.
+- For a different Google account/device user, create/provision that user's staff profile for the restaurant before giving access.
+- Do not put a license code on every device: redeem the activation code once for the restaurant. The plan is then read from Firebase Cloud.

@@ -229,7 +229,13 @@ async function redeemLicense() {
   }
 }
 
-const PLAN_NAMES = { starter: 'Starter', pro: 'Pro', lifetime: 'Lifetime', multibranch: 'Multi-branch' };
+const PLAN_NAMES = {
+  starter: 'Starter',
+  pro: 'Pro',
+  lifetime: 'Lifetime',
+  multibranch: 'Multi-branch (30 days)',
+  multibranch_lifetime: 'Multi-branch Lifetime'
+};
 
 async function loadSettings() {
   try {

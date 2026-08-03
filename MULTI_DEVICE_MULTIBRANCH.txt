@@ -1,0 +1,22 @@
+MULTI-BRANCH MULTI-DEVICE
+
+Plans:
+1. Multi-branch — 30 days
+2. Multi-branch — Lifetime
+
+Activation:
+- Owner generates ONE activation code.
+- Customer redeems it once in Settings.
+- The plan is saved in Firebase under the restaurant's main settings.
+- It is not tied to one phone.
+
+Devices:
+- Same authorized Google/Firebase account can sign in on multiple devices.
+- Each device can select its own active branch.
+- Branch selection is local to that device.
+- Products, stock, orders, sales, customers and tables remain in Firebase Cloud.
+
+Important:
+- Multi-branch Lifetime never expires.
+- Multi-branch 30 days stops being active after planExpiresAt.
+- A different Google account needs its own authorized staff profile.

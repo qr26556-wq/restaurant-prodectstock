@@ -1,4 +1,10 @@
-const PLAN_LABELS = { starter: 'Starter (30 days)', pro: 'Pro (30 days)', lifetime: 'Lifetime', multibranch: 'Multi-branch (30 days)' };
+const PLAN_LABELS = {
+  starter: 'Starter (30 days)',
+  pro: 'Pro (30 days)',
+  lifetime: 'Lifetime',
+  multibranch: 'Multi-branch (30 days)',
+  multibranch_lifetime: 'Multi-branch — Lifetime'
+};
 
 const signedOutView = document.getElementById('signedOutView');
 const notOwnerView = document.getElementById('notOwnerView');

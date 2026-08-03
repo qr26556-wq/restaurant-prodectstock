@@ -41,9 +41,13 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/restaurants/$(restId)).data.ownerUid == request.auth.uid;
     }
     function hasActiveMultiBranchPlan(rootId) {
-      return get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.plan == 'multibranch' &&
-        get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.planExpiresAt != null &&
-        get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.planExpiresAt > request.time;
+      let planData = get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data;
+      return planData.plan == 'multibranch_lifetime' ||
+        (
+          planData.plan == 'multibranch' &&
+          planData.planExpiresAt != null &&
+          planData.planExpiresAt > request.time
+        );
     }
     function isAdminOf(restId) {
       return (isActiveStaffOf(restId) && myProfile().role == 'admin') || isOwnerOfRestaurant(restId);
