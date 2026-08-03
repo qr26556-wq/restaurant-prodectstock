@@ -17,16 +17,20 @@ const DB = (() => {
     licenseCodes: db.collection('licenseCodes'),
   };
   let RID = null;
+  let ROOT_RID = null;
   let col = {}; // categories/products/tables/orders/settings — set by init()
 
-  function init(restaurantId) {
+  function init(restaurantId, rootRestaurantId = null) {
     RID = restaurantId;
+    ROOT_RID = rootRestaurantId || restaurantId;
     const shop = top.restaurants.doc(restaurantId);
     col = {
       categories: shop.collection('categories'),
       products: shop.collection('products'),
       tables: shop.collection('tables'),
       orders: shop.collection('orders'),
+      sales: shop.collection('sales'),
+      customers: shop.collection('customers'),
       settings: shop.collection('settings'),
     };
   }
@@ -65,6 +69,135 @@ const DB = (() => {
       createdAt: FieldValue.serverTimestamp(),
     });
     return restRef.id;
+  }
+
+  /* ---------------- Multi-branch cloud management ---------------- */
+  function rootRestaurantId() { return ROOT_RID || RID; }
+  function activeRestaurantId() { return RID; }
+  function isMainBranch() { return RID === rootRestaurantId(); }
+  function branchesRef() { return top.restaurants.doc(rootRestaurantId()).collection('branches'); }
+
+  async function hasActiveMultiBranchPlan() {
+    const rootId = rootRestaurantId();
+    const snap = await top.restaurants.doc(rootId).collection('settings').doc('general').get();
+    if (!snap.exists) return false;
+    const data = snap.data() || {};
+    if (!['multibranch','multibranch_lifetime'].includes(data.plan)) return false;
+    if (data.plan === 'multibranch_lifetime') return true;
+    if (!data.planExpiresAt) return false;
+    const exp = data.planExpiresAt.toDate ? data.planExpiresAt.toDate() : new Date(data.planExpiresAt);
+    return exp.getTime() > Date.now();
+  }
+
+  async function listBranchSummaries() {
+    const branches = await listBranches();
+    const now = new Date();
+    const start = new Date(now); start.setHours(0,0,0,0);
+    const startTs = Timestamp.fromDate(start);
+    const out = [];
+    for (const b of branches.filter(x => x.active !== false)) {
+      const shop = top.restaurants.doc(b.branchRestaurantId || b.id);
+      const [productsSnap, ordersSnap] = await Promise.all([
+        shop.collection('products').get(),
+        shop.collection('orders').where('createdAt', '>=', startTs).get(),
+      ]);
+      const orders = ordersSnap.docs.map(d => d.data());
+      const completed = orders.filter(o => o.status === 'completed');
+      out.push({
+        id: b.branchRestaurantId || b.id,
+        name: b.name,
+        products: productsSnap.size,
+        lowStock: productsSnap.docs.filter(d => { const x=d.data(); return (x.stock ?? 0) <= (x.lowStockThreshold ?? 5); }).length,
+        orders: orders.filter(o => o.status !== 'cancelled').length,
+        pending: orders.filter(o => ['new','preparing','ready','held'].includes(o.status)).length,
+        sales: completed.reduce((sum,o)=>sum+(o.total||0),0),
+      });
+    }
+    return out;
+  }
+
+  async function listBranches() {
+    const rootId = rootRestaurantId();
+    const snap = await branchesRef().orderBy('createdAt', 'asc').get();
+    const branches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const rootSnap = await top.restaurants.doc(rootId).get();
+    const rootData = rootSnap.exists ? rootSnap.data() : {};
+    return [{
+      id: rootId,
+      branchRestaurantId: rootId,
+      name: rootData.name || 'Main Branch',
+      isMain: true,
+      active: true,
+    }, ...branches];
+  }
+
+  async function createBranch(name) {
+    if (!RID || !ROOT_RID) throw new Error('Restaurant is not loaded.');
+    const rootId = rootRestaurantId();
+    if (!(await hasActiveMultiBranchPlan())) throw new Error('An active Multi-branch plan (30 days or Lifetime) is required to add branches.');
+    const rootSnap = await top.restaurants.doc(rootId).get();
+    if (!rootSnap.exists || rootSnap.data().ownerUid !== auth.currentUser?.uid) {
+      throw new Error('Only the restaurant owner can create branches.');
+    }
+    const cleanName = String(name || '').trim();
+    if (!cleanName) throw new Error('Enter a branch name.');
+    const branchRestaurant = top.restaurants.doc();
+    await branchRestaurant.set({
+      name: cleanName,
+      ownerUid: auth.currentUser.uid,
+      parentRestaurantId: rootId,
+      branch: true,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await branchesRef().doc(branchRestaurant.id).set({
+      branchRestaurantId: branchRestaurant.id,
+      name: cleanName,
+      active: true,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await top.restaurants.doc(branchRestaurant.id).collection('settings').doc('general').set({
+      restaurantName: cleanName,
+      currency: 'Rs',
+      taxPercent: 0,
+      language: 'en',
+      receiptFooter: 'Thank you for dining with us!',
+      branchOf: rootId,
+      createdAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return branchRestaurant.id;
+  }
+
+  async function updateBranch(branchId, name) {
+    if (!branchId || branchId === rootRestaurantId()) throw new Error('The main branch cannot be edited here.');
+    if (!(await hasActiveMultiBranchPlan())) throw new Error('An active Multi-branch plan (30 days or Lifetime) is required.');
+    const cleanName = String(name || '').trim();
+    if (!cleanName) throw new Error('Enter a branch name.');
+    const rootId = rootRestaurantId();
+    const rootSnap = await top.restaurants.doc(rootId).get();
+    if (!rootSnap.exists || rootSnap.data().ownerUid !== auth.currentUser?.uid) throw new Error('Only the restaurant owner can edit branches.');
+    await branchesRef().doc(branchId).set({ name: cleanName }, { merge: true });
+    await top.restaurants.doc(branchId).set({ name: cleanName }, { merge: true });
+    await top.restaurants.doc(branchId).collection('settings').doc('general').set({ restaurantName: cleanName }, { merge: true });
+  }
+
+  async function deleteBranch(branchId) {
+    if (!branchId || branchId === rootRestaurantId()) throw new Error('The main branch cannot be deleted.');
+    await branchesRef().doc(branchId).delete();
+    await top.restaurants.doc(branchId).update({ active: false });
+    if (RID === branchId) {
+      localStorage.removeItem('restpos_active_branch');
+      window.location.reload();
+    }
+  }
+
+  function switchBranch(branchId) {
+    const id = branchId || rootRestaurantId();
+    localStorage.setItem('restpos_active_branch', id);
+    window.location.reload();
+  }
+
+  function clearBranchSelection() {
+    localStorage.removeItem('restpos_active_branch');
   }
 
   /* ---------------- Categories ---------------- */
@@ -108,6 +241,12 @@ const DB = (() => {
     return col.tables.doc(id).update({ status, currentOrderId });
   }
   function deleteTable(id) { return col.tables.doc(id).delete(); }
+
+  /* ---------------- Sales / Customers ---------------- */
+  function listenSales(cb) { return col.sales.orderBy('createdAt', 'desc').onSnapshot(s => cb(s.docs.map(d => ({id:d.id,...d.data()}))), e => console.error('sales listen', e)); }
+  function addSale(data) { return col.sales.add({ createdAt: FieldValue.serverTimestamp(), ...data }); }
+  function listenCustomers(cb) { return col.customers.orderBy('name', 'asc').onSnapshot(s => cb(s.docs.map(d => ({id:d.id,...d.data()}))), e => console.error('customers listen', e)); }
+  function upsertCustomer(id, data) { return col.customers.doc(id).set({ updatedAt: FieldValue.serverTimestamp(), ...data }, {merge:true}); }
 
   /* ---------------- Settings ---------------- */
   function getSettings() { return col.settings.doc('general').get().then(d => d.exists ? d.data() : {}); }
@@ -363,7 +502,7 @@ const DB = (() => {
       const existing = await top.licenseCodes.doc(code).get();
       if (!existing.exists) break;
     }
-    const durationDays = plan === 'lifetime' ? null : 30; // Lifetime never expires; every other paid plan renews monthly
+    const durationDays = (plan === 'lifetime' || plan === 'multibranch_lifetime') ? null : 30; // Lifetime never expires; every other paid plan renews monthly
     await top.licenseCodes.doc(code).set({
       plan, durationDays, used: false,
       usedByRestaurantId: null, usedByRestaurantName: null, usedAt: null,
@@ -390,7 +529,7 @@ const DB = (() => {
   // plan in the same transaction, so the two can never drift apart.
   async function redeemLicenseCode(code, restaurantId, restaurantName) {
     const codeRef = top.licenseCodes.doc(code);
-    const settingsRef = col.settings.doc('general');
+    const settingsRef = top.restaurants.doc(rootRestaurantId()).collection('settings').doc('general');
     return db.runTransaction(async (tx) => {
       const codeSnap = await tx.get(codeRef);
       if (!codeSnap.exists) throw new Error("That code doesn't look right. Double-check it with us.");
@@ -497,6 +636,7 @@ const DB = (() => {
     listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile, adminCreateStaff,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
     generateLicenseCode, listenLicenseCodes, redeemLicenseCode, OWNER_EMAIL,
+    rootRestaurantId, activeRestaurantId, isMainBranch, listBranches, listBranchSummaries, hasActiveMultiBranchPlan, createBranch, updateBranch, deleteBranch, switchBranch, clearBranchSelection, listenSales, addSale, listenCustomers, upsertCustomer,
     seedSampleData, prefetchOfflineData,
   };
 })();

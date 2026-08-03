@@ -1,0 +1,24 @@
+MULTI-BRANCH CLOUD SETUP
+
+1) Deploy Firestore rules:
+   firebase deploy --only firestore:rules
+   OR paste firestore.rules into Firebase Console -> Firestore Database -> Rules -> Publish.
+
+2) In the Owner panel generate a Multi-branch (30 days) activation code.
+3) Customer enters the code in Settings -> Plan -> Activate.
+4) After activation, Settings shows Multi-Branch Cloud.
+5) Add branches from Settings. Each branch has separate Firebase products, stock,
+   tables, orders and settings.
+6) Admin can switch branches from the sidebar.
+7) Dashboard on Main Branch shows an All Branches summary for today.
+8) Trackpad/mouse scrolling is left native; no wheel/touch handler blocks two-finger scrolling.
+
+Important: Firebase Authentication and Firestore must be configured for the project in
+js/firebase-config.js. Existing Firebase configuration was not changed.
+
+
+LIFETIME MULTI-BRANCH
+- Owner panel > Plan > Multi-branch — Lifetime
+- Generate code and send it to the customer.
+- The customer redeems the code in Settings.
+- Multi-branch Lifetime never expires and allows branch management without a 30-day expiry.

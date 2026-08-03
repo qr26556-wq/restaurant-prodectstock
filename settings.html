@@ -2,15 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="theme-color" content="#7A0F1F">
 <meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="RESTPOS">
 <link rel="icon" href="assets/icons/icon-192.png">
-<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
 <link rel="stylesheet" href="css/styles.css">
 <title>Settings — RESTPOS</title>
 </head>
@@ -88,6 +84,16 @@
               </select>
             </div>
           </form>
+        </div>
+
+        <div class="card" id="branchManagementCard" style="padding:18px; max-width:640px; margin-top:16px">
+          <div class="section-title"><h2>Multi-Branch Cloud</h2></div>
+          <p class="hint" style="margin:0 0 14px">Add and switch restaurant branches. Each branch gets its own Firebase Cloud data for products, stock, tables, orders and settings.</p>
+          <div class="field-row" style="align-items:flex-end; margin-bottom:14px">
+            <div class="field" style="margin-bottom:0"><label>New branch name</label><input id="newBranchName" placeholder="e.g. Lahore Branch"></div>
+            <div class="field" style="margin-bottom:0"><button class="btn btn-primary btn-block" id="addBranchBtn" type="button">+ Add branch</button></div>
+          </div>
+          <div id="branchList"></div>
         </div>
 
         <div class="card" style="padding:18px; max-width:640px; margin-top:16px">

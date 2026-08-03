@@ -22,13 +22,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Keep the signed-in session on disk so reopening the app while offline
-// (no network to re-authenticate) still lands the user straight on their
-// screen instead of stuck at login.
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {
-  /* unsupported storage (rare/private browsing) — session just won't persist */
-});
-
 // Keep the client responsive offline / on flaky wifi (tablets at the counter).
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {
   /* multiple tabs open or unsupported browser — safe to ignore */

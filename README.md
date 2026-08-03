@@ -178,3 +178,7 @@ screens on top of the same collections plus a few new ones (`customers`,
   (POS "Complete order" or a resumed held order) — not when the kitchen
   marks it done — so two cashiers can't oversell the same last portion.
 - Cancelling an order restores any stock it had committed and frees its table.
+
+
+## Multi-branch cloud
+The app now supports owner-managed branches stored in Firestore. Each branch uses a separate `/restaurants/{branchId}` document and its own products, stock, tables, orders and settings subcollections. Deploy the updated `firestore.rules` after uploading the app.

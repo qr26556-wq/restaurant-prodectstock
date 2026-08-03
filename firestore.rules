@@ -29,11 +29,24 @@ service cloud.firestore {
     }
     // Active staff of THIS specific restaurant (restId is the path segment
     // of whatever subcollection is being accessed).
+    function isBranchOfMyRestaurant(restId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/restaurants/$(myRestaurantId())/branches/$(restId)) &&
+        get(/databases/$(database)/documents/restaurants/$(myRestaurantId())/branches/$(restId)).data.active != false;
+    }
     function isActiveStaffOf(restId) {
-      return isSignedIn() && myProfile().active != false && myRestaurantId() == restId;
+      return isSignedIn() && myProfile().active != false &&
+        (myRestaurantId() == restId || isBranchOfMyRestaurant(restId));
+    }
+    function isOwnerOfRestaurant(restId) {
+      return isSignedIn() && get(/databases/$(database)/documents/restaurants/$(restId)).data.ownerUid == request.auth.uid;
+    }
+    function hasActiveMultiBranchPlan(rootId) {
+      return get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.plan == 'multibranch' &&
+        get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.planExpiresAt != null &&
+        get(/databases/$(database)/documents/restaurants/$(rootId)/settings/general).data.planExpiresAt > request.time;
     }
     function isAdminOf(restId) {
-      return isActiveStaffOf(restId) && myProfile().role == 'admin';
+      return (isActiveStaffOf(restId) && myProfile().role == 'admin') || isOwnerOfRestaurant(restId);
     }
     function isManagerOf(restId) {
       return isActiveStaffOf(restId) && myProfile().role == 'manager';
@@ -153,13 +166,20 @@ service cloud.firestore {
     // --- Restaurants (shops) ---
     match /restaurants/{restId} {
       // Only staff of that exact restaurant may read its shop document.
-      allow read: if isActiveStaffOf(restId);
+      allow read: if isActiveStaffOf(restId) || isOwnerOfRestaurant(restId);
       // Anyone signed in may create a brand-new restaurant, but only as
       // its own declared owner — this is how self-serve "Create your shop"
       // works. It can never overwrite an existing restaurant (create-only).
       allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if isAdminOf(restId);
       allow delete: if false;
+
+      // --- Multi-branch metadata (owned by the main restaurant owner) ---
+      match /branches/{branchId} {
+        allow read: if isAdminOf(restId) && restId == myRestaurantId();
+        allow create: if isAdminOf(restId) && restId == myRestaurantId() && hasActiveMultiBranchPlan(restId);
+        allow update, delete: if isAdminOf(restId) && restId == myRestaurantId();
+      }
 
       // --- Catalog: categories & products ---
       match /categories/{id} {

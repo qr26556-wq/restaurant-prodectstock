@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restpos-shell-v17';
+const CACHE_NAME = 'restpos-shell-v15';
 const SHELL_FILES = [
   'index.html',
   'login.html',
@@ -70,15 +70,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first (stale-while-revalidate) for our own static shell AND the
-// CDN libraries above: every request is answered IMMEDIATELY from the
-// cache when we have it, so the app boots instantly — on a slow/flaky
-// connection there's no network round-trip on the critical path at all,
-// and offline works from the very first paint instead of only after a
-// network timeout. A fetch is still kicked off in the background to
-// refresh the cache, so the next load picks up a new deploy/library
-// update. If nothing is cached yet (first-ever visit), we fall back to
-// the network like before.
+// Network-first for our own static shell AND the CDN libraries above:
+// every request tries the live network FIRST so a new deploy/library
+// update is picked up immediately, and only falls back to the cached
+// copy if the network is unreachable (offline use at the counter). This
+// also refreshes the cache with whatever the network just returned, so
+// the offline fallback stays reasonably current.
 // Everything else (Firebase Auth/Firestore API calls, fonts, analytics)
 // goes straight to the network untouched — those responses should never
 // be served from a stale cache.
@@ -88,16 +85,11 @@ self.addEventListener('fetch', (event) => {
   const isCdnAsset = CDN_FILES.includes(event.request.url);
   if (event.request.method !== 'GET' || !(isOwnOrigin || isCdnAsset)) return;
 
-  const fetchOpts = isCdnAsset ? { mode: 'cors' } : undefined;
-  const networkUpdate = fetch(event.request, fetchOpts).then(res => {
-    if (res && res.ok) {
+  event.respondWith(
+    fetch(event.request, isCdnAsset ? { mode: 'cors' } : undefined).then(res => {
       const clone = res.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-    }
-    return res;
-  }).catch(() => null);
-
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || networkUpdate)
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });

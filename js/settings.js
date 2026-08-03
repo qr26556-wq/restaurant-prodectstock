@@ -6,6 +6,7 @@ RESTPOS.guard(['admin'], async (user) => {
   __currentUser = user;
   RESTPOS.renderNav('settings', user.role, user.name);
   await loadSettings();
+  await loadBranches();
 
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
   document.getElementById('backup30Btn').addEventListener('click', downloadLast30DaysPDF);
@@ -13,11 +14,73 @@ RESTPOS.guard(['admin'], async (user) => {
   document.getElementById('pushDayStartBtn').addEventListener('click', () => setFieldToNow('sDayStart'));
   document.getElementById('pushDayEndBtn').addEventListener('click', () => setFieldToNow('sDayEnd'));
   document.getElementById('redeemLicenseBtn').addEventListener('click', redeemLicense);
+  const addBranchBtn = document.getElementById('addBranchBtn');
+  if (addBranchBtn) addBranchBtn.addEventListener('click', addBranch);
+  const branchList = document.getElementById('branchList');
+  if (branchList) branchList.addEventListener('click', handleBranchAction);
 
   DB.listenTables(list => { __tables = list; renderTablesList(); });
   document.getElementById('addTableBtn').addEventListener('click', addTableFromForm);
   document.getElementById('bulkTablesBtn').addEventListener('click', generate30Tables);
 });
+
+async function loadBranches() {
+  const card = document.getElementById('branchManagementCard');
+  const list = document.getElementById('branchList');
+  if (!card || !list) return;
+  try {
+    const enabled = await DB.hasActiveMultiBranchPlan();
+    if (!enabled) { card.style.display = 'none'; return; }
+    const branches = await DB.listBranches();
+    card.style.display = branches.length >= 1 ? '' : 'none';
+    list.innerHTML = branches.map(b => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line,#ead9ad)">
+        <div style="flex:1"><strong>${RESTPOS.escapeHtml(b.name)}</strong>${b.isMain ? ' <span class="badge badge-slate">Main</span>' : ''}</div>
+        ${b.id === DB.activeRestaurantId() ? '<span class="badge badge-sage">Current</span>' : `<button class="btn btn-sm" data-branch-action="switch" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Switch</button>`}
+        ${!b.isMain ? `<button class="btn btn-sm" data-branch-action="edit" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" data-branch-name="${RESTPOS.escapeHtml(b.name)}">Edit</button><button class="btn btn-sm" data-branch-action="delete" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Delete</button>` : ''}
+      </div>`).join('');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not load branches: ' + err.message, 'error');
+  }
+}
+
+async function addBranch() {
+  const input = document.getElementById('newBranchName');
+  const btn = document.getElementById('addBranchBtn');
+  const name = input.value.trim();
+  if (!name) { RESTPOS.toast('Enter a branch name.', 'error'); return; }
+  btn.disabled = true;
+  try {
+    await DB.createBranch(name);
+    input.value = '';
+    await loadBranches();
+    RESTPOS.toast('Branch created in Firebase Cloud.', 'success');
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Could not create branch: ' + err.message, 'error');
+  } finally { btn.disabled = false; }
+}
+
+async function handleBranchAction(e) {
+  const btn = e.target.closest('[data-branch-action]');
+  if (!btn) return;
+  const id = btn.dataset.branchId;
+  if (btn.dataset.branchAction === 'switch') DB.switchBranch(id);
+  if (btn.dataset.branchAction === 'edit') {
+    const current = btn.dataset.branchName || '';
+    const name = prompt('Branch name:', current);
+    if (name === null) return;
+    try { await DB.updateBranch(id, name); await loadBranches(); RESTPOS.toast('Branch updated.', 'success'); }
+    catch (err) { RESTPOS.toast('Could not update branch: ' + err.message, 'error'); }
+    return;
+  }
+  if (btn.dataset.branchAction === 'delete') {
+    if (!confirm('Delete this branch? Its cloud data will remain in Firebase but the branch will be disabled.')) return;
+    try { await DB.deleteBranch(id); await loadBranches(); RESTPOS.toast('Branch disabled.', 'success'); }
+    catch (err) { RESTPOS.toast('Could not delete branch: ' + err.message, 'error'); }
+  }
+}
 
 function renderTablesList() {
   const host = document.getElementById('tablesList');
@@ -114,7 +177,8 @@ const PLAN_DISPLAY = {
   starter: 'Starter',
   pro: 'Pro',
   lifetime: 'Lifetime',
-  multibranch: 'Multi-branch',
+  multibranch: 'Multi-branch (30 days)',
+  multibranch_lifetime: 'Multi-branch Lifetime',
 };
 
 function renderPlanStatus() {
@@ -155,6 +219,7 @@ async function redeemLicense() {
     RESTPOS.toast(`${PLAN_NAMES[result.plan] || result.plan} activated!`, 'success');
     input.value = '';
     await loadSettings();
+  await loadBranches();
   } catch (err) {
     console.error(err);
     RESTPOS.toast('Could not activate: ' + err.message, 'error');
@@ -169,6 +234,12 @@ const PLAN_NAMES = { starter: 'Starter', pro: 'Pro', lifetime: 'Lifetime', multi
 async function loadSettings() {
   try {
     const data = await DB.getSettings();
+    let globalPlan = {};
+    try {
+      const rootSnap = await db.collection('restaurants').doc(DB.rootRestaurantId()).collection('settings').doc('general').get();
+      if (rootSnap.exists) globalPlan = rootSnap.data() || {};
+    } catch (_) {}
+    const merged = { ...data, plan: globalPlan.plan || data.plan, planExpiresAt: globalPlan.planExpiresAt || data.planExpiresAt, planActivatedAt: globalPlan.planActivatedAt || data.planActivatedAt };
     document.getElementById('sName').value = data.restaurantName || '';
     document.getElementById('sAddress').value = data.address || '';
     document.getElementById('sPhone').value = data.phone || '';
@@ -180,7 +251,7 @@ async function loadSettings() {
     document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
     document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
     document.getElementById('sAutoDelete').checked = !!data.autoDeleteOldOrders;
-    __settings = data;
+    __settings = merged;
     renderPlanStatus();
   } catch (err) {
     console.error(err);

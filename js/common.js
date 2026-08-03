@@ -163,6 +163,7 @@ const RESTPOS = (() => {
       <nav class="bottomnav">${bottomLinks}</nav>`;
     document.getElementById('navHost').innerHTML = sidebar;
     document.getElementById('logoutBtn').addEventListener('click', logout);
+    if (role === 'admin') mountBranchSwitcher();
 
     // fill topbar user label if present
     const who = document.getElementById('whoLabel');
@@ -189,7 +190,7 @@ const RESTPOS = (() => {
   // quiet, dismissible reminder so the admin knows to renew when it's
   // convenient, never a wall blocking the counter.
   function showPlanReminder(settings) {
-    if (settings.plan !== 'pro' || !settings.planExpiresAt) return;
+    if (!['pro','multibranch'].includes(settings.plan) || !settings.planExpiresAt) return;
     const exp = settings.planExpiresAt.toDate ? settings.planExpiresAt.toDate() : new Date(settings.planExpiresAt);
     const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86400000);
     if (daysLeft > 5) return; // not worth mentioning yet
@@ -238,6 +239,23 @@ const RESTPOS = (() => {
     setInterval(tick, 1000 * 30);
   }
 
+  async function mountBranchSwitcher() {
+    try {
+      if (!(await DB.hasActiveMultiBranchPlan())) return;
+      const branches = await DB.listBranches();
+      if (branches.length < 2) return;
+      const brand = document.querySelector('.sidebar .brand');
+      if (!brand) return;
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'padding:10px 14px;border-bottom:1px solid rgba(201,151,31,.25)';
+      wrap.innerHTML = `<label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.65;margin-bottom:5px">Branch</label><select id="globalBranchSelect" style="width:100%;padding:8px;border-radius:7px;border:1px solid rgba(201,151,31,.5);background:#fff8e8;color:#211412">${branches.map(b => `<option value="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">${RESTPOS.escapeHtml(b.name)}${b.isMain ? ' (Main)' : ''}</option>`).join('')}</select>`;
+      brand.parentNode.insertBefore(wrap, brand.nextSibling);
+      const select = wrap.querySelector('#globalBranchSelect');
+      select.value = DB.activeRestaurantId();
+      select.addEventListener('change', () => DB.switchBranch(select.value));
+    } catch (e) { console.warn('Branch switcher unavailable', e); }
+  }
+
   function logout() {
     auth.signOut().then(() => {
       sessionStorage.removeItem('restpos_user');
@@ -272,8 +290,19 @@ const RESTPOS = (() => {
           setTimeout(logout, 1200);
           return;
         }
-        DB.init(data.restaurantId);
-        const userDoc = { uid: user.uid, name: data.name || user.email, email: user.email, role: data.role, restaurantId: data.restaurantId };
+        const rootRestaurantId = data.restaurantId;
+        let activeBranchId = rootRestaurantId;
+        const savedBranch = localStorage.getItem('restpos_active_branch');
+        if (data.role === 'admin' && savedBranch) {
+          try {
+            const branchSnap = await db.collection('restaurants').doc(rootRestaurantId).collection('branches').doc(savedBranch).get();
+            if (branchSnap.exists && branchSnap.data().active !== false) activeBranchId = savedBranch;
+          } catch (_) {}
+        }
+        DB.init(activeBranchId, rootRestaurantId);
+        const userDoc = { uid: user.uid, name: data.name || user.email, email: user.email, role: data.role, restaurantId: rootRestaurantId, activeBranchId };
+        window.__rootRestaurantId = rootRestaurantId;
+        window.__activeBranchId = activeBranchId;
         sessionStorage.setItem('restpos_user', JSON.stringify(userDoc));
         callback(userDoc);
       } catch (e) {

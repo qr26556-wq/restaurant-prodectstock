@@ -40,6 +40,7 @@ function boot() {
   });
 
   loadWeekChart();
+  loadAllBranches();
 
   document.getElementById('seedBtn').addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -169,6 +170,26 @@ async function loadWeekChart() {
       scales: { y: { beginAtZero: true, ticks: { callback: v => RESTPOS.money(v) } } },
     }
   });
+}
+
+async function loadAllBranches() {
+  if (window.__activeBranchId !== window.__rootRestaurantId) return;
+  const card = document.getElementById('allBranchesCard');
+  const tbody = document.querySelector('#allBranchesTable tbody');
+  if (!card || !tbody) return;
+  try {
+    if (!(await DB.hasActiveMultiBranchPlan())) return;
+    const rows = await DB.listBranchSummaries();
+    if (rows.length < 2) return;
+    card.style.display = '';
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td><strong>${RESTPOS.escapeHtml(r.name)}</strong>${r.id === DB.rootRestaurantId() ? ' <span class="badge badge-slate">Main</span>' : ''}</td>
+      <td>${r.products}</td><td>${r.lowStock}</td><td>${r.orders}</td><td>${r.pending}</td><td class="mono">${RESTPOS.money(r.sales)}</td>
+    </tr>`).join('');
+  } catch (e) {
+    console.error('all branches', e);
+    tbody.innerHTML = `<tr><td colspan="6" class="hint">Could not load branch summary.</td></tr>`;
+  }
 }
 
 function maybeShowSeedBanner() {
