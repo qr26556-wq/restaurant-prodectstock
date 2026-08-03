@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restpos-shell-v13';
+const CACHE_NAME = 'restpos-shell-v15';
 const SHELL_FILES = [
   'index.html',
   'login.html',
