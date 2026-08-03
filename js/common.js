@@ -297,14 +297,15 @@ const RESTPOS = (() => {
           return;
         }
         const rootRestaurantId = data.restaurantId;
-        let activeBranchId = rootRestaurantId;
+        let activeBranchId = data.activeBranchId || rootRestaurantId;
         const savedBranch = localStorage.getItem('restpos_active_branch');
-        if (data.role === 'admin' && savedBranch) {
-          try {
-            const branchSnap = await db.collection('restaurants').doc(rootRestaurantId).collection('branches').doc(savedBranch).get();
-            if (branchSnap.exists && branchSnap.data().active !== false) activeBranchId = savedBranch;
-          } catch (_) {}
-        }
+        if (data.role === 'admin' && savedBranch) activeBranchId = savedBranch;
+        try {
+          if (activeBranchId !== rootRestaurantId) {
+            const branchSnap = await db.collection('restaurants').doc(rootRestaurantId).collection('branches').doc(activeBranchId).get();
+            if (!branchSnap.exists || branchSnap.data().active === false) activeBranchId = rootRestaurantId;
+          }
+        } catch (_) { activeBranchId = rootRestaurantId; }
         DB.init(activeBranchId, rootRestaurantId);
         const userDoc = { uid: user.uid, name: data.name || user.email, email: user.email, role: data.role, restaurantId: rootRestaurantId, activeBranchId };
         window.__rootRestaurantId = rootRestaurantId;

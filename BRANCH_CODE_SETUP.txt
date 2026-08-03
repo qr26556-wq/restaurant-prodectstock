@@ -1,0 +1,26 @@
+BRANCH CODE / MULTI-DEVICE SETUP
+
+1. Owner opens Settings -> Multi-Branch Cloud.
+2. Add a new branch. A reusable Branch Code is generated automatically.
+3. Existing branches without a code show "Generate branch code".
+4. Branch Code is NOT the paid activation code.
+5. Activation code controls the paid Multi-Branch plan:
+   - Multi-Branch (30 days)
+   - Multi-Branch Lifetime
+6. Branch Code connects a device/user to a specific branch.
+7. The same Branch Code can be used on multiple devices.
+8. On a new phone/computer:
+   - Open login page
+   - Choose "Join a branch"
+   - Enter Branch Code
+   - Continue with Google
+   - The device is connected to that branch
+9. New branch-code users are created as Cashier by default.
+10. Existing users in the same restaurant keep their existing role while switching to the coded branch.
+11. Products, stock, tables, orders, sales and customers are stored under the selected branch's Firebase restaurant document.
+12. Owner can still use Switch and All Branches from the main account.
+
+IMPORTANT:
+- Deploy firestore.rules after updating the app.
+- Branch codes are reusable. They are not one-time activation codes.
+- Paid activation codes remain one-time use.

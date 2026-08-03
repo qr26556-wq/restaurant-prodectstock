@@ -15,6 +15,7 @@ const DB = (() => {
     staffCodes: db.collection('staffCodes'),
     restaurants: db.collection('restaurants'),
     licenseCodes: db.collection('licenseCodes'),
+    branchCodes: db.collection('branchCodes'),
   };
   let RID = null;
   let ROOT_RID = null;
@@ -131,6 +132,72 @@ const DB = (() => {
     }, ...branches];
   }
 
+  function makeBranchCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = new Uint8Array(6);
+    if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    return Array.from(bytes, b => chars[b % chars.length]).join('');
+  }
+
+  async function generateUniqueBranchCode(rootId, branchId, role = 'cashier') {
+    for (let i = 0; i < 12; i++) {
+      const code = makeBranchCode();
+      const ref = top.branchCodes.doc(code);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          code,
+          restaurantId: rootId,
+          branchId,
+          role,
+          active: true,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        return code;
+      }
+    }
+    throw new Error('Could not generate a unique branch code. Please try again.');
+  }
+
+  async function redeemBranchCode(code, user) {
+    const clean = String(code || '').trim().toUpperCase();
+    if (!clean) throw new Error('Enter the branch code.');
+    const ref = top.branchCodes.doc(clean);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error('Branch code not found.');
+    const data = snap.data() || {};
+    if (data.active === false) throw new Error('This branch code is disabled.');
+    if (!data.restaurantId || !data.branchId) throw new Error('This branch code is invalid.');
+    const branchSnap = await top.restaurants.doc(data.restaurantId).collection('branches').doc(data.branchId).get();
+    if (!branchSnap.exists || branchSnap.data().active === false) throw new Error('This branch is inactive.');
+
+    const userRef = top.users.doc(user.uid);
+    const existing = await userRef.get();
+    const payload = {
+      uid: user.uid,
+      name: user.displayName || user.email,
+      email: user.email,
+      role: data.role || 'cashier',
+      active: true,
+      restaurantId: data.restaurantId,
+      activeBranchId: data.branchId,
+      joinedViaBranchCode: clean,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (existing.exists) {
+      const old = existing.data() || {};
+      if (old.restaurantId && old.restaurantId !== data.restaurantId) {
+        throw new Error('This Google account is already linked to another restaurant.');
+      }
+      await userRef.set({ ...payload, role: old.role || data.role || 'cashier' }, { merge: true });
+    } else {
+      await userRef.set({ ...payload, createdAt: FieldValue.serverTimestamp() });
+    }
+    localStorage.setItem('restpos_active_branch', data.branchId);
+    return data.role || 'cashier';
+  }
+
   async function createBranch(name) {
     if (!RID || !ROOT_RID) throw new Error('Restaurant is not loaded.');
     const rootId = rootRestaurantId();
@@ -149,10 +216,12 @@ const DB = (() => {
       branch: true,
       createdAt: FieldValue.serverTimestamp(),
     });
+    const branchCode = await generateUniqueBranchCode(rootId, branchRestaurant.id, 'cashier');
     await branchesRef().doc(branchRestaurant.id).set({
       branchRestaurantId: branchRestaurant.id,
       name: cleanName,
       active: true,
+      branchCode,
       createdAt: FieldValue.serverTimestamp(),
     });
     await top.restaurants.doc(branchRestaurant.id).collection('settings').doc('general').set({
@@ -164,7 +233,22 @@ const DB = (() => {
       branchOf: rootId,
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });
-    return branchRestaurant.id;
+    return { id: branchRestaurant.id, branchCode };
+  }
+
+  async function ensureBranchCode(branchId, role = 'cashier') {
+    if (!branchId || branchId === rootRestaurantId()) throw new Error('The main branch does not need a branch code.');
+    const rootId = rootRestaurantId();
+    if (!(await hasActiveMultiBranchPlan())) throw new Error('An active Multi-branch plan (30 days or Lifetime) is required.');
+    const rootSnap = await top.restaurants.doc(rootId).get();
+    if (!rootSnap.exists || rootSnap.data().ownerUid !== auth.currentUser?.uid) throw new Error('Only the restaurant owner can generate branch codes.');
+    const branchSnap = await branchesRef().doc(branchId).get();
+    if (!branchSnap.exists || branchSnap.data().active === false) throw new Error('Branch not found or inactive.');
+    const existing = branchSnap.data().branchCode;
+    if (existing) return existing;
+    const code = await generateUniqueBranchCode(rootId, branchId, role);
+    await branchesRef().doc(branchId).set({ branchCode: code }, { merge: true });
+    return code;
   }
 
   async function updateBranch(branchId, name) {
@@ -635,8 +719,8 @@ const DB = (() => {
     createOrder, updateOrderStatus, cancelOrder, freeTableForOrder,
     listenStaffUsers, updateUserRole, setUserActive, removeStaffProfile, adminCreateStaff,
     generateStaffCode, listenStaffCodes, deleteStaffCode, redeemStaffCode,
-    generateLicenseCode, listenLicenseCodes, redeemLicenseCode, OWNER_EMAIL,
-    rootRestaurantId, activeRestaurantId, isMainBranch, listBranches, listBranchSummaries, hasActiveMultiBranchPlan, createBranch, updateBranch, deleteBranch, switchBranch, clearBranchSelection, listenSales, addSale, listenCustomers, upsertCustomer,
+    generateLicenseCode, listenLicenseCodes, redeemLicenseCode, redeemBranchCode, OWNER_EMAIL,
+    rootRestaurantId, activeRestaurantId, isMainBranch, listBranches, listBranchSummaries, hasActiveMultiBranchPlan, createBranch, ensureBranchCode, updateBranch, deleteBranch, switchBranch, clearBranchSelection, listenSales, addSale, listenCustomers, upsertCustomer,
     seedSampleData, prefetchOfflineData,
   };
 })();

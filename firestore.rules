@@ -90,6 +90,19 @@ service cloud.firestore {
           get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.role == request.resource.data.role &&
           get(/databases/$(database)/documents/staffCodes/$(request.resource.data.joinedViaCode)).data.restaurantId == request.resource.data.restaurantId
         ) ||
+        // (1b) reusable branch code: creates a cashier profile tied to the
+        // owner's restaurant and the specific branch. The same branch code
+        // may be used on multiple devices.
+        (
+          isSignedIn() && request.auth.uid == uid &&
+          request.resource.data.active == true &&
+          request.resource.data.role in ['admin', 'manager', 'cashier'] &&
+          request.resource.data.joinedViaBranchCode is string &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.active == true &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.restaurantId == request.resource.data.restaurantId &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.branchId == request.resource.data.activeBranchId &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.role == request.resource.data.role
+        ) ||
         // (2) becoming the founding admin of a brand-new restaurant
         (
           isSignedIn() && request.auth.uid == uid &&
@@ -111,7 +124,21 @@ service cloud.firestore {
           request.resource.data.active == true
         );
 
-      allow update, delete: if isSignedIn() &&
+      allow update: if
+        (isSignedIn() &&
+          myProfile().role == 'admin' && myProfile().active != false &&
+          myRestaurantId() == resource.data.restaurantId)
+        ||
+        (isSignedIn() && request.auth.uid == uid &&
+          request.resource.data.restaurantId == resource.data.restaurantId &&
+          request.resource.data.active == true &&
+          request.resource.data.joinedViaBranchCode is string &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.active == true &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.restaurantId == resource.data.restaurantId &&
+          get(/databases/$(database)/documents/branchCodes/$(request.resource.data.joinedViaBranchCode)).data.branchId == request.resource.data.activeBranchId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeBranchId','joinedViaBranchCode','updatedAt','name','email','uid','role','active','restaurantId'])) ;
+
+      allow delete: if isSignedIn() &&
         myProfile().role == 'admin' && myProfile().active != false &&
         myRestaurantId() == resource.data.restaurantId;
     }
@@ -138,6 +165,27 @@ service cloud.firestore {
           request.resource.data.used == true &&
           request.resource.data.usedBy == request.auth.uid
         );
+      allow delete: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == resource.data.restaurantId;
+    }
+
+    // --- Reusable branch access codes (top-level, keyed by code) ---
+    // A branch code is NOT the paid activation code. It only connects a
+    // Google account to one branch. It is intentionally reusable so the
+    // same branch can run on multiple phones/computers.
+    match /branchCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && myProfile().role == 'admin' &&
+        myProfile().active != false &&
+        myRestaurantId() == resource.data.restaurantId;
+      allow create: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == request.resource.data.restaurantId &&
+        hasActiveMultiBranchPlan(request.resource.data.restaurantId);
+      allow update: if isSignedIn() &&
+        myProfile().role == 'admin' && myProfile().active != false &&
+        myRestaurantId() == resource.data.restaurantId;
       allow delete: if isSignedIn() &&
         myProfile().role == 'admin' && myProfile().active != false &&
         myRestaurantId() == resource.data.restaurantId;

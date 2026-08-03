@@ -35,7 +35,7 @@ async function loadBranches() {
     card.style.display = branches.length >= 1 ? '' : 'none';
     list.innerHTML = branches.map(b => `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line,#ead9ad)">
-        <div style="flex:1"><strong>${RESTPOS.escapeHtml(b.name)}</strong>${b.isMain ? ' <span class="badge badge-slate">Main</span>' : ''}</div>
+        <div style="flex:1"><strong>${RESTPOS.escapeHtml(b.name)}</strong>${b.isMain ? ' <span class="badge badge-slate">Main</span>' : ''}${!b.isMain ? (b.branchCode ? `<div class="hint mono" style="margin-top:4px">Branch Code: <strong>${RESTPOS.escapeHtml(b.branchCode)}</strong> <button class="btn btn-sm" data-branch-action="copy-code" data-branch-code="${RESTPOS.escapeHtml(b.branchCode)}" type="button">Copy</button></div>` : `<div style="margin-top:4px"><button class="btn btn-sm" data-branch-action="generate-code" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" type="button">Generate branch code</button></div>`) : ''}</div>
         ${b.id === DB.activeRestaurantId() ? '<span class="badge badge-sage">Current</span>' : `<button class="btn btn-sm" data-branch-action="switch" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Switch</button>`}
         ${!b.isMain ? `<button class="btn btn-sm" data-branch-action="edit" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}" data-branch-name="${RESTPOS.escapeHtml(b.name)}">Edit</button><button class="btn btn-sm" data-branch-action="delete" data-branch-id="${RESTPOS.escapeHtml(b.branchRestaurantId || b.id)}">Delete</button>` : ''}
       </div>`).join('');
@@ -66,6 +66,20 @@ async function handleBranchAction(e) {
   const btn = e.target.closest('[data-branch-action]');
   if (!btn) return;
   const id = btn.dataset.branchId;
+  if (btn.dataset.branchAction === 'generate-code') {
+    try {
+      const code = await DB.ensureBranchCode(btn.dataset.branchId);
+      await loadBranches();
+      RESTPOS.toast('Branch code generated: ' + code, 'success');
+    } catch (err) { RESTPOS.toast('Could not generate branch code: ' + err.message, 'error'); }
+    return;
+  }
+  if (btn.dataset.branchAction === 'copy-code') {
+    const code = btn.dataset.branchCode || '';
+    try { await navigator.clipboard.writeText(code); RESTPOS.toast('Branch code copied.', 'success'); }
+    catch (_) { prompt('Copy this branch code:', code); }
+    return;
+  }
   if (btn.dataset.branchAction === 'switch') DB.switchBranch(id);
   if (btn.dataset.branchAction === 'edit') {
     const current = btn.dataset.branchName || '';
