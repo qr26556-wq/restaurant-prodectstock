@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#7A0F1F">
+<meta name="description" content="RESTPOS — sign in to run your restaurant's billing counter, kitchen tickets, tables and inventory from one app.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://restaurant-prodectstock.vercel.app/login.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RESTPOS">
+<meta property="og:title" content="RESTPOS — Restaurant POS System">
+<meta property="og:description" content="Restaurant billing, kitchen tickets and inventory in one app. Sign in to run the counter.">
+<meta property="og:url" content="https://restaurant-prodectstock.vercel.app/login.html">
+<meta property="og:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RESTPOS — Restaurant POS System">
+<meta name="twitter:description" content="Restaurant billing, kitchen tickets and inventory in one app.">
+<meta name="twitter:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<link rel="manifest" href="manifest.json">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "RESTPOS",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (Web, PWA)",
+  "description": "Restaurant billing, kitchen tickets, table management and inventory in one app.",
+  "url": "https://restaurant-prodectstock.vercel.app/login.html",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+<title>Sign in — RESTPOS | Restaurant POS System</title>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <a href="index.html" class="hint" style="display:inline-block; margin-bottom:14px; color:var(--ember,#A6182C); text-decoration:none; font-weight:600">← Back to home</a>
+      <div class="mark">R</div>
+      <h1>RESTPOS</h1>
+      <p class="sub">Sign in to run the counter.</p>
+      <p class="sub" style="margin-top:-6px; font-size:12px; opacity:.75">Billing, kitchen tickets, tables and inventory — all in one place.</p>
+
+      <div class="auth-tabs">
+        <button type="button" class="active" data-role="admin">Admin</button>
+        <button type="button" data-role="manager">Manager</button>
+        <button type="button" data-role="cashier">Cashier</button>
+      </div>
+
+      <p class="hint" id="tabCodeHint" style="text-align:center; margin:-6px 0 16px">
+        First time here? <button type="button" class="link-btn" id="showJoinBtnTop">Join with a staff code</button> instead of a password.
+      </p>
+
+      <div class="auth-error" id="authError"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required autocomplete="username" placeholder="you@restaurant.com">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div class="auth-row">
+          <button type="button" class="link-btn" id="forgotBtn">Forgot password?</button>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Sign in</button>
+      </form>
+
+      <div class="auth-divider"><span>or</span></div>
+
+      <button type="button" class="btn btn-google btn-block" id="googleBtn">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
+          <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <form id="resetForm" class="hidden">
+        <p class="sub" style="margin-bottom:16px">
+          Enter your account email and we'll send you a link to reset your password.
+        </p>
+        <div class="field">
+          <label for="resetEmail">Email</label>
+          <input type="email" id="resetEmail" required autocomplete="username" placeholder="you@restaurant.com">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="resetBtn">Send reset link</button>
+        <div class="auth-row" style="justify-content:center; margin-top:14px">
+          <button type="button" class="link-btn" id="backToLoginBtn">Back to sign in</button>
+        </div>
+      </form>
+
+      <p class="hint" style="margin-top:16px" id="noAccountHint">
+        New here? <button type="button" class="link-btn" id="showCreateShopBtn">Create your shop</button>
+      </p>
+      <p class="hint" style="margin-top:8px" id="haveCodeHint">
+        Have a staff code from your admin? <button type="button" class="link-btn" id="showJoinBtn">Join your team</button>
+      </p>
+      <p class="hint" style="margin-top:8px; text-align:center">
+        <a href="diagnostics.html">Having trouble signing in? Run diagnostics →</a>
+      </p>
+
+      <form id="createShopForm" class="hidden">
+        <p class="sub" style="margin-bottom:16px">
+          Setting up a brand-new restaurant? This creates a fresh, private
+          account for your shop — your data is never shared with any other
+          restaurant on this system. You'll be its first Admin.
+        </p>
+        <div class="field">
+          <label for="shopName">Restaurant name</label>
+          <input id="shopName" required placeholder="e.g. Spice Garden">
+        </div>
+        <button type="button" class="btn btn-google btn-block" id="createShopGoogleBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        <div class="auth-row" style="justify-content:center; margin-top:14px">
+          <button type="button" class="link-btn" id="backFromCreateShopBtn">Back to sign in</button>
+        </div>
+      </form>
+
+      <form id="joinForm" class="hidden">
+        <p class="sub" style="margin-bottom:16px">
+          Enter the code your admin gave you, then continue with your own Google account.
+          Your profile and role are created automatically the first time.
+        </p>
+        <div class="field">
+          <label for="joinCode">Staff code</label>
+          <input id="joinCode" required maxlength="6" placeholder="e.g. 7K3PXM" style="text-transform:uppercase; letter-spacing:3px; text-align:center; font-weight:700">
+        </div>
+        <button type="button" class="btn btn-google btn-block" id="joinGoogleBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        <div class="auth-row" style="justify-content:center; margin-top:14px">
+          <button type="button" class="link-btn" id="backFromJoinBtn">Sign in with email &amp; password instead</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

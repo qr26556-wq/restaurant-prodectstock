@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#7A0F1F">
+<meta name="description" content="RESTPOS — restaurant billing, kitchen tickets, table management and inventory in one simple app. Free to start, works offline, no card needed.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://restaurant-prodectstock.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RESTPOS">
+<meta property="og:title" content="RESTPOS — Restaurant Billing, Kitchen & Inventory in One App">
+<meta property="og:description" content="Run your counter, kitchen tickets, tables and stock from one simple app. Free to start.">
+<meta property="og:url" content="https://restaurant-prodectstock.vercel.app/">
+<meta property="og:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="RESTPOS — Restaurant Billing, Kitchen & Inventory in One App">
+<meta name="twitter:description" content="Run your counter, kitchen tickets, tables and stock from one simple app.">
+<meta name="twitter:image" content="https://restaurant-prodectstock.vercel.app/assets/icons/icon-512.png">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<title>RESTPOS — Restaurant Billing, Kitchen &amp; Inventory in One App</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "RESTPOS",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any (Web, PWA)",
+  "description": "Restaurant billing, kitchen tickets, table management and inventory in one app.",
+  "url": "https://restaurant-prodectstock.vercel.app/",
+  "offers": { "@type": "Offer", "price": "2500", "priceCurrency": "PKR", "description": "Starter plan, per month" },
+  "featureList": [
+    "Point of sale billing",
+    "Kitchen order tickets",
+    "Table management",
+    "Inventory and stock tracking",
+    "Staff roles and join codes",
+    "Works offline"
+  ]
+}
+</script>
+<style>
+  :root{
+    --ink:#211412; --paper:#FBF3E3; --paper-dim:#F1E1B9; --line:#E4CE97;
+    --ember:#A6182C; --ember-dark:#7A0F1F; --gold:#C9971F; --gold-soft:#F7EAC5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Segoe UI','Microsoft YaHei',Roboto,system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+  .fdisplay{font-family:'Songti SC','STSong','Noto Serif CJK SC','Microsoft YaHei',Georgia,serif}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .mark{width:38px;height:38px;border-radius:7px;background:var(--ember);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Songti SC','STSong',Georgia,serif;font-weight:700;font-style:italic;color:var(--gold-soft);font-size:19px}
+  .brand span{font-weight:700;font-size:17px;letter-spacing:.02em}
+  header a.btn{text-decoration:none;padding:9px 16px;border-radius:6px;border:1px solid var(--line);font-weight:600;font-size:13.5px;color:var(--ink)}
+  header a.btn.primary{background:var(--ember);border-color:var(--ember-dark);color:#fff}
+  main{max-width:1000px;margin:0 auto;padding:0 22px}
+  .hero{text-align:center;padding:64px 10px 44px}
+  .hero h1{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif;font-size:clamp(28px,5vw,44px);margin:0 0 14px;color:var(--ember-dark);line-height:1.15}
+  .hero p{font-size:16px;color:#5A4239;max-width:560px;margin:0 auto 26px}
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .cta-row a{text-decoration:none;padding:13px 24px;border-radius:8px;font-weight:700;font-size:14.5px}
+  .cta-row a.primary{background:var(--ember);color:#fff;border:1px solid var(--ember-dark)}
+  .cta-row a.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;padding:20px 0 56px}
+  .feature{background:#fff;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:20px}
+  .feature .emoji{font-size:26px;margin-bottom:10px;display:block}
+  .feature h2{font-size:15.5px;margin:0 0 6px;color:var(--ember-dark)}
+  .feature p{font-size:13px;color:#5A4239;margin:0;line-height:1.5}
+  footer{text-align:center;padding:28px 10px;color:#8a6f5c;font-size:12.5px;border-top:1px solid var(--line)}
+  #loadingNotice{display:none;text-align:center;padding:40px 10px;color:#8a6f5c;font-size:13px}
+
+  .pricing{padding:16px 0 56px; text-align:center}
+  .pricing-h2{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:clamp(22px,4vw,30px); color:var(--ember-dark); margin:0 0 8px}
+  .pricing-sub{color:#5A4239; font-size:14px; margin:0 0 30px}
+  .plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; text-align:left}
+  .plan{background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px 22px; position:relative; display:flex; flex-direction:column}
+  .plan h3{font-size:15px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink)}
+  .plan .price{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:28px; font-weight:700; color:var(--ember-dark); margin-bottom:8px}
+  .plan .price span{font-size:13px; font-weight:400; color:#8a6f5c}
+  .plan-desc{font-size:13px; color:#5A4239; margin:0 0 16px}
+  .plan ul{list-style:none; margin:0 0 22px; padding:0; flex:1}
+  .plan ul li{font-size:13px; color:var(--ink); padding:6px 0 6px 22px; position:relative; border-bottom:1px dashed var(--paper-dim)}
+  .plan ul li::before{content:"✓"; position:absolute; left:0; color:var(--sage,#2C6E52); font-weight:700}
+  .plan .btn-plan{display:block; text-align:center; text-decoration:none; padding:11px; border-radius:7px; font-weight:700; font-size:13.5px; background:#fff; border:1px solid var(--line); color:var(--ink)}
+  .plan .btn-plan.secondary{background:#fff}
+  .plan.featured{border:2px solid var(--gold); box-shadow:0 10px 26px -14px rgba(122,15,31,.35)}
+  .plan.featured .btn-plan{background:var(--ember); border-color:var(--ember-dark); color:#fff}
+  .plan-badge{position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--gold); color:#3a2a06; font-size:11px; font-weight:700; padding:4px 12px; border-radius:99px; text-transform:uppercase; letter-spacing:.04em}
+  .plan.lifetime{border:2px solid var(--ember); background:linear-gradient(180deg,#fff 0%,var(--gold-soft) 140%)}
+  .plan.lifetime .price{color:var(--ember)}
+  .plan-badge.gold-badge{background:var(--ember); color:#fff}
+  .btn-plan.lifetime-btn{background:var(--ember); border-color:var(--ember-dark); color:#fff}
+
+  .pay-info{max-width:640px; margin:36px auto 0; background:#fff; border:1px solid var(--line); border-top:3px solid var(--gold); border-radius:12px; padding:24px 26px; text-align:left}
+  .pay-info h3{margin:0 0 8px; font-size:15px; color:var(--ember-dark)}
+  .pay-info p{margin:0 0 16px; font-size:13px; color:#5A4239}
+  .pay-methods-list{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-bottom:18px}
+  .pay-method{background:var(--paper-dim,#F1E1B9); border-radius:8px; padding:12px 14px}
+  .pay-method strong{display:block; font-size:12.5px; color:var(--ink); margin-bottom:3px}
+  .pay-method span{display:block; font-family:ui-monospace,'SFMono-Regular',Consolas,monospace; font-size:13.5px; color:var(--ember-dark); font-weight:700}
+  .contact-row{display:flex; gap:10px; flex-wrap:wrap}
+  .contact-row .btn-plan{flex:1; min-width:180px}
+  .btn-plan.whatsapp-btn{background:#25D366; border-color:#1DA851; color:#fff}
+  @media (max-width:340px){
+    header{padding:12px 14px; gap:8px}
+    header a.btn{padding:7px 11px; font-size:12px}
+    .brand span{font-size:15px}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="mark">R</div><span>RESTPOS</span></div>
+    <div style="display:flex; align-items:center; gap:10px">
+      <a class="btn" href="#pricing" style="border-color:var(--line); background:#fff">Pricing</a>
+      <a class="btn primary" href="login.html">Sign in</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="pricing" id="pricing" aria-label="Pricing">
+      <h2 class="pricing-h2">Simple pricing</h2>
+      <p class="pricing-sub">Pick a plan, or talk to us for a custom quote. No card needed to start.</p>
+      <div class="plans">
+        <div class="plan">
+          <h3>Free</h3>
+          <div class="price">Rs. 0<span>/forever</span></div>
+          <p class="plan-desc">Try it out with a single counter, no card needed.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders &amp; tables</li>
+            <li>Up to 10 products</li>
+            <li>Admin-only (no cashier/manager accounts)</li>
+            <li>No AI image generation</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create">Get started</a>
+        </div>
+        <div class="plan">
+          <h3>Starter</h3>
+          <div class="price">Rs. 2,500<span>/month</span></div>
+          <p class="plan-desc">For a single-counter shop just getting going.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders &amp; tables</li>
+            <li>Up to 3 staff accounts</li>
+            <li>Email support</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create" data-plan-name="Starter" data-plan-price="Rs. 2,500/month">Get started</a>
+        </div>
+        <div class="plan featured">
+          <div class="plan-badge">Most popular</div>
+          <h3>Pro</h3>
+          <div class="price">Rs. 5,500<span>/month</span></div>
+          <p class="plan-desc">For a busy restaurant with a full team.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders, tables &amp; staff</li>
+            <li>Kitchen display + KOT tickets</li>
+            <li>Data backup &amp; retention tools</li>
+            <li>Priority support</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create" data-plan-name="Pro" data-plan-price="Rs. 5,500/month">Get started</a>
+        </div>
+        <div class="plan lifetime">
+          <div class="plan-badge gold-badge">One-time</div>
+          <h3>Lifetime</h3>
+          <div class="price">Rs. 15,000<span>one-time</span></div>
+          <p class="plan-desc">Pay once, use it forever — no monthly fee, ever.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders, tables &amp; staff</li>
+            <li>Kitchen display + KOT tickets</li>
+            <li>Data backup &amp; retention tools</li>
+            <li>All future updates included</li>
+          </ul>
+          <a class="btn-plan lifetime-btn" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20lifetime%20plan" data-plan-name="Lifetime" data-plan-price="Rs. 15,000 one-time">Get lifetime access</a>
+        </div>
+        <div class="plan">
+          <h3>Multi-branch</h3>
+          <div class="price">Custom</div>
+          <p class="plan-desc">For chains with more than one location.</p>
+          <ul>
+            <li>Multiple branches</li>
+            <li>Centralized reporting</li>
+            <li>Onboarding &amp; training</li>
+            <li>Dedicated support</li>
+          </ul>
+          <a class="btn-plan secondary" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20multi-branch%20plan" data-plan-name="Multi-branch" data-plan-price="Custom">Contact us</a>
+        </div>
+      </div>
+
+      <div class="pay-info">
+        <h3>How to pay</h3>
+        <p>Send payment via JazzCash or bank transfer, then message us your payment screenshot to activate your plan.</p>
+        <div class="pay-methods-list">
+          <div class="pay-method"><strong>JazzCash</strong><span>0324-4996576 — Qasim Raza</span></div>
+          <div class="pay-method"><strong>Meezan Bank</strong><span>11570114385195 — Qasim Trader</span></div>
+        </div>
+        <div class="contact-row">
+          <a href="https://wa.me/923134586476" class="btn-plan whatsapp-btn">💬 WhatsApp: 0313-4586476</a>
+          <a href="mailto:qraza2376@gmail.com" class="btn-plan secondary">✉️ qraza2376@gmail.com</a>
+        </div>
+      </div>
+    </section>
+    <section class="hero">
+      <h1>Run your whole restaurant counter from one app</h1>
+      <p>Billing, kitchen tickets, tables and stock — in one simple, fast, works-offline app. Free to start, no card needed.</p>
+      <div class="cta-row">
+        <a class="primary" href="login.html">Sign in</a>
+        <a class="secondary" href="login.html?action=create">Create your restaurant — it's free</a>
+      </div>
+    </section>
+
+    <section class="features" aria-label="Features">
+      <div class="feature"><span class="emoji">🧾</span><h2>Point of sale billing</h2><p>Ring up dine-in, takeaway and delivery orders in a couple of taps, with instant printable receipts.</p></div>
+      <div class="feature"><span class="emoji">🍳</span><h2>Kitchen order tickets</h2><p>Orders land on the kitchen screen the moment they're placed — no shouting across the counter.</p></div>
+      <div class="feature"><span class="emoji">🪑</span><h2>Table management</h2><p>See which tables are free or occupied at a glance, and link orders straight to a table.</p></div>
+      <div class="feature"><span class="emoji">📦</span><h2>Inventory &amp; stock</h2><p>Stock levels update automatically as items sell, so you always know what's running low.</p></div>
+      <div class="feature"><span class="emoji">👥</span><h2>Staff roles &amp; join codes</h2><p>Add cashiers and managers with their own logins, or invite them with a simple one-time code.</p></div>
+      <div class="feature"><span class="emoji">📴</span><h2>Works offline</h2><p>Keep taking orders even if the wifi drops — everything syncs automatically once you're back online.</p></div>
+    </section>
+
+
+    <div id="loadingNotice">Taking you to your dashboard…</div>
+  </main>
+
+  <footer>© <span id="yr"></span> RESTPOS — Restaurant POS System</footer>
+
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+  <script>
+    // Every "Get started / Get lifetime access / Contact us" button on the
+    // pricing cards fires off a WhatsApp ping to the owner with which plan
+    // was picked, alongside whatever it already does (go to sign-up, or
+    // open a mailto). Opened in a new tab so the original action isn't
+    // interrupted.
+    (function notifyPlanClicks() {
+      const OWNER_WHATSAPP = '923134586476';
+      document.querySelectorAll('.btn-plan[data-plan-name]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const plan = btn.dataset.planName;
+          const price = btn.dataset.planPrice || '';
+          const text = `New RESTPOS interest — Plan: ${plan} (${price}). Clicked "${btn.textContent.trim()}" on the pricing page.`;
+          const waUrl = `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
+          window.open(waUrl, '_blank', 'noopener');
+        });
+      });
+    })();
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+    // Progressive enhancement only: this page is real, crawlable content
+    // for new visitors and search engines. If someone lands here while
+    // already signed in on this device, quietly send them straight to
+    // their dashboard/POS instead of making them click "Sign in" again —
+    // logged-out visitors and crawlers just see the page above, untouched.
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+      try {
+        const snap = await db.collection('users').doc(user.uid).get();
+        if (snap.exists && snap.data().active !== false) {
+          document.getElementById('loadingNotice').style.display = 'block';
+          const role = snap.data().role;
+          window.location.href = (role === 'admin' || role === 'manager') ? 'dashboard.html' : 'pos.html';
+        }
+      } catch (e) { /* stay on the landing page */ }
+    });
+  </script>
+</body>
+</html>

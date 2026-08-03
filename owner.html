@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#7A0F1F">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="assets/icons/icon-192.png">
+<title>Plan codes — RESTPOS</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card" style="max-width:440px">
+      <div class="mark">$</div>
+      <h1>Plan codes</h1>
+      <p class="sub">Owner-only — generate activation codes for Pro / Lifetime after a payment comes in.</p>
+
+      <div id="signedOutView">
+        <button class="btn btn-google btn-block" id="ownerGoogleBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.66 9c0-.59.1-1.17.29-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+      </div>
+
+      <div id="notOwnerView" class="hidden">
+        <div class="auth-error" style="display:block">This Google account isn't authorized for plan codes.</div>
+        <button class="btn btn-block" id="ownerSignOutBtn">Sign out</button>
+      </div>
+
+      <div id="ownerView" class="hidden">
+        <div class="field-row" style="align-items:flex-end; margin-bottom:14px">
+          <div class="field" style="margin-bottom:0">
+            <label>Plan</label>
+            <select id="planSelect">
+              <option value="pro">Pro — 30 days</option>
+              <option value="lifetime">Lifetime — never expires</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <button class="btn btn-primary btn-block" id="genLicenseBtn">⚡ Generate code</button>
+          </div>
+        </div>
+
+        <div id="freshLicenseBox" class="hidden" style="display:flex; align-items:center; gap:12px; background:var(--gold-soft,#F7EAC5); border:1px dashed var(--gold,#C9971F); border-radius:8px; padding:14px 16px; margin-bottom:16px">
+          <span class="mono" id="freshLicenseText" style="font-size:22px; font-weight:700; letter-spacing:4px; color:var(--ember-dark)"></span>
+          <button class="btn btn-sm" id="copyLicenseBtn" type="button">Copy</button>
+          <span class="hint" id="freshLicensePlan" style="margin-left:auto"></span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data" id="licenseTable">
+            <thead><tr><th>Code</th><th>Plan</th><th>Status</th><th></th></tr></thead>
+            <tbody><tr><td colspan="4" class="hint" style="padding:16px 10px">No codes generated yet.</td></tr></tbody>
+          </table>
+        </div>
+
+        <button class="btn" id="ownerSignOutBtn2" style="margin-top:18px">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/owner.js"></script>
+</body>
+</html>
