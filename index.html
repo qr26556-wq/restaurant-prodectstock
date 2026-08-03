@@ -67,7 +67,8 @@
   .cta-row a.primary{background:var(--ember);color:#fff;border:1px solid var(--ember-dark)}
   .cta-row a.secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
   .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;padding:20px 0 56px}
-  .feature{background:#fff;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:20px}
+  .feature{background:#fff;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:10px;padding:20px; box-shadow:0 1px 2px rgba(33,20,18,.06), 0 12px 22px -14px rgba(33,20,18,.3); transition:transform .18s ease, box-shadow .18s ease}
+  .feature:hover{transform:translateY(-4px); box-shadow:0 1px 2px rgba(33,20,18,.08), 0 20px 30px -14px rgba(33,20,18,.38)}
   .feature .emoji{font-size:26px;margin-bottom:10px;display:block}
   .feature h2{font-size:15.5px;margin:0 0 6px;color:var(--ember-dark)}
   .feature p{font-size:13px;color:#5A4239;margin:0;line-height:1.5}
@@ -78,7 +79,8 @@
   .pricing-h2{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:clamp(22px,4vw,30px); color:var(--ember-dark); margin:0 0 8px}
   .pricing-sub{color:#5A4239; font-size:14px; margin:0 0 30px}
   .plans{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; text-align:left}
-  .plan{background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px 22px; position:relative; display:flex; flex-direction:column}
+  .plan{background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px 22px; position:relative; display:flex; flex-direction:column; box-shadow:0 1px 2px rgba(33,20,18,.06), 0 14px 26px -16px rgba(33,20,18,.32); transition:transform .18s ease, box-shadow .18s ease}
+  .plan:hover{transform:translateY(-5px); box-shadow:0 1px 2px rgba(33,20,18,.08), 0 24px 38px -18px rgba(33,20,18,.4)}
   .plan h3{font-size:15px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink)}
   .plan .price{font-family:'Songti SC','STSong','Noto Serif CJK SC',Georgia,serif; font-size:28px; font-weight:700; color:var(--ember-dark); margin-bottom:8px}
   .plan .price span{font-size:13px; font-weight:400; color:#8a6f5c}
