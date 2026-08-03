@@ -363,7 +363,7 @@ const DB = (() => {
       const existing = await top.licenseCodes.doc(code).get();
       if (!existing.exists) break;
     }
-    const durationDays = plan === 'pro' ? 30 : null; // Lifetime never expires
+    const durationDays = plan === 'lifetime' ? null : 30; // Lifetime never expires; every other paid plan renews monthly
     await top.licenseCodes.doc(code).set({
       plan, durationDays, used: false,
       usedByRestaurantId: null, usedByRestaurantName: null, usedAt: null,

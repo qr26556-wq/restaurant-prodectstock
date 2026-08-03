@@ -110,25 +110,33 @@ function setFieldToNow(fieldId) {
   RESTPOS.toast('Set to current time — tap "Save changes" to apply.', 'default');
 }
 
+const PLAN_DISPLAY = {
+  starter: 'Starter',
+  pro: 'Pro',
+  lifetime: 'Lifetime',
+  multibranch: 'Multi-branch',
+};
+
 function renderPlanStatus() {
   const el = document.getElementById('planStatus');
   const plan = __settings.plan;
-  if (!plan || plan === 'starter') {
-    el.textContent = "You're on the free Starter plan. Enter an activation code below to upgrade.";
+  if (!plan) {
+    el.textContent = "You're on the Free plan. Enter an activation code below to upgrade.";
     return;
   }
   if (plan === 'lifetime') {
     el.innerHTML = `<span class="badge badge-sage">Lifetime</span> Active — never expires. Thanks for your support!`;
     return;
   }
-  if (plan === 'pro') {
+  if (PLAN_DISPLAY[plan]) {
+    const label = PLAN_DISPLAY[plan];
     const exp = __settings.planExpiresAt;
     const expDate = exp && exp.toDate ? exp.toDate() : (exp ? new Date(exp) : null);
     const expired = expDate && expDate.getTime() < Date.now();
     if (expired) {
-      el.innerHTML = `<span class="badge badge-alert">Pro — expired</span> Your Pro plan ran out on ${expDate.toLocaleDateString()}. Enter a new code to renew.`;
+      el.innerHTML = `<span class="badge badge-alert">${label} — expired</span> Your ${label} plan ran out on ${expDate.toLocaleDateString()}. Enter a new code to renew.`;
     } else {
-      el.innerHTML = `<span class="badge badge-sage">Pro</span> Active${expDate ? ' — renews/expires ' + expDate.toLocaleDateString() : ''}.`;
+      el.innerHTML = `<span class="badge badge-sage">${label}</span> Active${expDate ? ' — renews/expires ' + expDate.toLocaleDateString() : ''}.`;
     }
     return;
   }
@@ -156,7 +164,7 @@ async function redeemLicense() {
   }
 }
 
-const PLAN_NAMES = { pro: 'Pro', lifetime: 'Lifetime' };
+const PLAN_NAMES = { starter: 'Starter', pro: 'Pro', lifetime: 'Lifetime', multibranch: 'Multi-branch' };
 
 async function loadSettings() {
   try {

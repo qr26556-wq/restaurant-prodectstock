@@ -366,12 +366,11 @@ const RESTPOS = (() => {
   function isPaidPlan(settings) {
     if (!settings || !settings.plan) return false;
     if (settings.plan === 'lifetime') return true;
-    if (settings.plan === 'pro') {
-      if (!settings.planExpiresAt) return true;
-      const exp = settings.planExpiresAt.toDate ? settings.planExpiresAt.toDate() : new Date(settings.planExpiresAt);
-      return exp.getTime() > Date.now();
-    }
-    return false;
+    // Starter, Pro, Multi-branch all activate the same way: a 30-day
+    // code that must still be unexpired.
+    if (!settings.planExpiresAt) return true;
+    const exp = settings.planExpiresAt.toDate ? settings.planExpiresAt.toDate() : new Date(settings.planExpiresAt);
+    return exp.getTime() > Date.now();
   }
 
   // Shared "you've hit a free-plan wall" message — points the admin at
