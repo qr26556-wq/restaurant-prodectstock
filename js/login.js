@@ -70,6 +70,8 @@ auth.getRedirectResult().then(async (result) => {
 });
 
 // If already signed in, skip straight to the right screen.
+// The application pages also expose a visible Log out button; sign-out always
+// returns the user to this login screen.
 auth.onAuthStateChanged(async (user) => {
   if (!user) return;
   try {

@@ -157,12 +157,18 @@ const RESTPOS = (() => {
         </div>
         <nav>${sidebarLinks}</nav>
         <div class="bottom">
-          <button class="logout" id="logoutBtn">${icon('logout')}<span data-i18n="logout">${t('logout')}</span></button>
+          <button class="logout" id="logoutBtn" type="button">${icon('logout')}<span data-i18n="logout">${t('logout')}</span></button>
         </div>
       </aside>
-      <nav class="bottomnav">${bottomLinks}</nav>`;
+      <nav class="bottomnav">
+        ${bottomLinks}
+        <button class="mobile-logout" id="mobileLogoutBtn" type="button" aria-label="Log out">
+          ${icon('logout')}<span data-i18n="logout">${t('logout')}</span>
+        </button>
+      </nav>`;
     document.getElementById('navHost').innerHTML = sidebar;
     document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
     if (role === 'admin') mountBranchSwitcher();
 
     // fill topbar user label if present

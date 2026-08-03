@@ -431,3 +431,22 @@ html, body, .main, .page, .modal, .cart-items, .sidebar nav { -webkit-overflow-s
 /* Trackpad / mouse natural scrolling: never intercept wheel or gesture events. */
 html, body { overflow-y:auto; overscroll-behavior-y:auto; touch-action:auto; }
 .main, .page { min-height:100vh; }
+
+
+/* Google/email account logout: keep a visible sign-out action on mobile too. */
+.mobile-logout {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 8px;
+}
+.mobile-logout svg { width: 20px; height: 20px; }
+@media (max-width: 760px) {
+  .mobile-logout { display: flex; }
+}
