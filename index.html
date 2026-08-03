@@ -141,6 +141,19 @@
       <p class="pricing-sub">Pick a plan, or talk to us for a custom quote. No card needed to start.</p>
       <div class="plans">
         <div class="plan">
+          <h3>Free</h3>
+          <div class="price">Rs. 0<span>/forever</span></div>
+          <p class="plan-desc">Try it out with a single counter, no card needed.</p>
+          <ul>
+            <li>1 branch</li>
+            <li>Unlimited orders &amp; tables</li>
+            <li>Up to 10 products</li>
+            <li>Admin-only (no cashier/manager accounts)</li>
+            <li>No AI image generation</li>
+          </ul>
+          <a class="btn-plan" href="login.html?action=create" data-plan-name="Free" data-plan-price="Rs. 0">Get started</a>
+        </div>
+        <div class="plan">
           <h3>Starter</h3>
           <div class="price">Rs. 2,500<span>/month</span></div>
           <p class="plan-desc">For a single-counter shop just getting going.</p>
@@ -150,7 +163,7 @@
             <li>Up to 3 staff accounts</li>
             <li>Email support</li>
           </ul>
-          <a class="btn-plan" href="login.html?action=create">Get started</a>
+          <a class="btn-plan" href="login.html?action=create" data-plan-name="Starter" data-plan-price="Rs. 2,500/month">Get started</a>
         </div>
         <div class="plan featured">
           <div class="plan-badge">Most popular</div>
@@ -164,7 +177,7 @@
             <li>Data backup &amp; retention tools</li>
             <li>Priority support</li>
           </ul>
-          <a class="btn-plan" href="login.html?action=create">Get started</a>
+          <a class="btn-plan" href="login.html?action=create" data-plan-name="Pro" data-plan-price="Rs. 5,500/month">Get started</a>
         </div>
         <div class="plan lifetime">
           <div class="plan-badge gold-badge">One-time</div>
@@ -178,7 +191,7 @@
             <li>Data backup &amp; retention tools</li>
             <li>All future updates included</li>
           </ul>
-          <a class="btn-plan lifetime-btn" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20lifetime%20plan">Get lifetime access</a>
+          <a class="btn-plan lifetime-btn" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20lifetime%20plan" data-plan-name="Lifetime" data-plan-price="Rs. 15,000 one-time">Get lifetime access</a>
         </div>
         <div class="plan">
           <h3>Multi-branch</h3>
@@ -190,7 +203,7 @@
             <li>Onboarding &amp; training</li>
             <li>Dedicated support</li>
           </ul>
-          <a class="btn-plan secondary" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20multi-branch%20plan">Contact us</a>
+          <a class="btn-plan secondary" href="mailto:qraza2376@gmail.com?subject=RESTPOS%20multi-branch%20plan" data-plan-name="Multi-branch" data-plan-price="Custom">Contact us</a>
         </div>
       </div>
 
@@ -214,6 +227,25 @@
   <footer>© <span id="yr"></span> RESTPOS — Restaurant POS System</footer>
 
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+  <script>
+    // Every "Get started / Get lifetime access / Contact us" button on the
+    // pricing cards fires off a WhatsApp ping to the owner with which plan
+    // was picked, alongside whatever it already does (go to sign-up, or
+    // open a mailto). Opened in a new tab so the original action isn't
+    // interrupted.
+    (function notifyPlanClicks() {
+      const OWNER_WHATSAPP = '923134586476';
+      document.querySelectorAll('.btn-plan[data-plan-name]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const plan = btn.dataset.planName;
+          const price = btn.dataset.planPrice || '';
+          const text = `New RESTPOS interest — Plan: ${plan} (${price}). Clicked "${btn.textContent.trim()}" on the pricing page.`;
+          const waUrl = `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
+          window.open(waUrl, '_blank', 'noopener');
+        });
+      });
+    })();
+  </script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>

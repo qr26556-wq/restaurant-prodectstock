@@ -357,5 +357,28 @@ const RESTPOS = (() => {
     doc.save(filename);
   }
 
-  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, receiptPDF, tablePDF, t, setLanguage, NAV_ITEMS };
+  // --- Free-plan limits ---------------------------------------------
+  // Kept in one place so every page enforces the exact same numbers.
+  // A restaurant is "paid" once it's redeemed a Pro (30-day, still
+  // unexpired) or Lifetime license code in Settings.
+  const FREE_LIMITS = { products: 10, staff: 1 };
+
+  function isPaidPlan(settings) {
+    if (!settings || !settings.plan) return false;
+    if (settings.plan === 'lifetime') return true;
+    if (settings.plan === 'pro') {
+      if (!settings.planExpiresAt) return true;
+      const exp = settings.planExpiresAt.toDate ? settings.planExpiresAt.toDate() : new Date(settings.planExpiresAt);
+      return exp.getTime() > Date.now();
+    }
+    return false;
+  }
+
+  // Shared "you've hit a free-plan wall" message — points the admin at
+  // Settings → Plan, where the existing license-code redeem flow lives.
+  function upsellToast(msg) {
+    toast(`${msg} Activate a plan in Settings to unlock this.`, 'error');
+  }
+
+  return { icon, toast, money, fmtDate, genOrderNumber, escapeHtml, renderNav, guard, logout, openModal, closeModal, receiptPDF, tablePDF, t, setLanguage, NAV_ITEMS, FREE_LIMITS, isPaidPlan, upsellToast };
 })();

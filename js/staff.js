@@ -8,8 +8,13 @@ RESTPOS.guard(['admin'], (user) => {
   RESTPOS.renderNav('staff', user.role, user.name);
   DB.listenStaffUsers(user.restaurantId, renderStaffTable);
   DB.listenStaffCodes(user.restaurantId, renderCodesTable);
+  DB.getSettings().then(s => { window.__settings = s || {}; updateStaffPlanHint(); }).catch(() => {});
 
   document.getElementById('genCodeBtn').addEventListener('click', async () => {
+    if (!RESTPOS.isPaidPlan(window.__settings || {}) && allStaff.length >= RESTPOS.FREE_LIMITS.staff) {
+      RESTPOS.upsellToast(`Free plan is admin-only — no additional staff accounts.`);
+      return;
+    }
     const btn = document.getElementById('genCodeBtn');
     const role = document.getElementById('codeRole').value;
     btn.disabled = true;
@@ -41,6 +46,10 @@ RESTPOS.guard(['admin'], (user) => {
 
   document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!RESTPOS.isPaidPlan(window.__settings || {}) && allStaff.length >= RESTPOS.FREE_LIMITS.staff) {
+      RESTPOS.upsellToast(`Free plan is admin-only — no additional staff accounts.`);
+      return;
+    }
     const btn = document.getElementById('addStaffBtn');
     const name = document.getElementById('newStaffName').value.trim();
     const email = document.getElementById('newStaffEmail').value.trim();
@@ -144,6 +153,13 @@ async function deleteCode(code) {
 
 const ROLE_LABELS = { admin: 'Admin', manager: 'Manager', cashier: 'Cashier' };
 
+function updateStaffPlanHint() {
+  const el = document.getElementById('staffPlanHint');
+  if (!el) return;
+  if (RESTPOS.isPaidPlan(window.__settings || {})) { el.textContent = ''; return; }
+  el.textContent = `Free plan: admin-only, no cashier/manager accounts. Upgrade in Settings to add staff.`;
+}
+
 function renderStaffTable(list) {
   allStaff = list;
   const tbody = document.querySelector('#staffTable tbody');
@@ -177,6 +193,7 @@ function renderStaffTable(list) {
   tbody.querySelectorAll('[data-remove]').forEach(btn => {
     btn.addEventListener('click', () => removeStaff(btn.dataset.remove));
   });
+  updateStaffPlanHint();
 }
 
 function openRoleModal(uid) {

@@ -38,6 +38,7 @@
             <button class="btn btn-primary" id="addProductBtn">Add product</button>
           </div>
         </div>
+        <p class="hint" id="planLimitHint" style="margin:-8px 0 12px"></p>
 
         <div class="card table-scroll">
           <table class="data" id="productsTable">
@@ -79,14 +80,14 @@
               <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:200px">
                 <div style="display:flex; gap:8px; flex-wrap:wrap">
                   <button type="button" class="btn btn-sm" id="pImageGalleryBtn">📁 Choose from gallery</button>
-                  <button type="button" class="btn btn-sm" id="pImageAiBtn">✨ Generate with AI (free)</button>
+                  <button type="button" class="btn btn-sm" id="pImageAiBtn">✨ Generate with AI (Pro)</button>
                   <button type="button" class="btn btn-sm btn-danger" id="pImageRemoveBtn" style="display:none">Remove</button>
                 </div>
                 <div id="pImageAiRow" class="hidden" style="display:flex; gap:8px; flex-wrap:wrap">
                   <input id="pImageAiPrompt" placeholder="Describe the dish, e.g. 'grilled chicken burger, top view'" style="flex:1; min-width:160px">
                   <button type="button" class="btn btn-primary btn-sm" id="pImageAiGoBtn">Generate</button>
                 </div>
-                <p class="hint" style="margin:0">Pick a photo from your device, or generate a free AI image from a text description. Needs internet.</p>
+                <p class="hint" style="margin:0">Pick a photo from your device (free), or generate an AI image from a text description (Pro plan). Needs internet.</p>
               </div>
             </div>
           </div>
@@ -114,7 +115,7 @@
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
             <label for="catImageInput" id="catImagePreview" style="width:48px; height:48px; border:1px dashed var(--line,#ccc); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; overflow:hidden; flex:none">🍕</label>
             <input type="file" id="catImageInput" accept="image/*" class="hidden">
-            <button type="button" class="btn btn-sm" id="catImageAiBtn" title="Generate with free AI">✨ AI</button>
+            <button type="button" class="btn btn-sm" id="catImageAiBtn" title="Generate with AI (Pro)">✨ AI</button>
             <input id="catName" placeholder="Category name" required style="flex:1; min-width:140px">
             <button class="btn btn-primary" type="submit" id="addCatBtn">Add</button>
           </div>
@@ -123,7 +124,7 @@
             <button type="button" class="btn btn-primary btn-sm" id="catImageAiGoBtn">Generate</button>
           </div>
         </form>
-        <p class="hint" style="margin:-8px 0 14px">Tap the square to upload a picture, or tap ✨ AI to generate one for free (optional — defaults to a plate emoji).</p>
+        <p class="hint" style="margin:-8px 0 14px">Tap the square to upload a picture (free), or tap ✨ AI to generate one — Pro plan (optional — defaults to a plate emoji).</p>
         <div id="catList"></div>
       </div>
     </div>

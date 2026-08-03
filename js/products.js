@@ -8,13 +8,22 @@ RESTPOS.guard(['admin'], (user) => {
 
 function boot() {
   DB.listenCategories(list => { categories = list; renderCategorySelects(); renderCategoryManager(); });
-  DB.listenProducts(list => { products = list; renderTable(); });
+  DB.listenProducts(list => { products = list; renderTable(); updatePlanLimitHint(); });
+  DB.getSettings().then(s => { window.__settings = s || {}; updatePlanLimitHint(); }).catch(() => {});
 
   document.getElementById('searchInput').addEventListener('input', e => { search = e.target.value.toLowerCase(); renderTable(); });
   document.getElementById('categoryFilter').addEventListener('change', e => { catFilter = e.target.value; renderTable(); });
   document.getElementById('stockFilter').addEventListener('change', e => { stockFilter = e.target.value; renderTable(); });
 
-  document.getElementById('addProductBtn').addEventListener('click', () => openProductModal());
+  document.getElementById('addProductBtn').addEventListener('click', () => {
+    const settings = window.__settings || {};
+    const limit = RESTPOS.FREE_LIMITS.products;
+    if (!RESTPOS.isPaidPlan(settings) && products.length >= limit) {
+      RESTPOS.upsellToast(`Free plan is limited to ${limit} products.`);
+      return;
+    }
+    openProductModal();
+  });
   document.getElementById('manageCatsBtn').addEventListener('click', () => RESTPOS.openModal('catModal'));
 
   document.getElementById('productForm').addEventListener('submit', saveProduct);
@@ -23,6 +32,10 @@ function boot() {
   document.getElementById('catForm').addEventListener('submit', addCategory);
   document.getElementById('catImageInput').addEventListener('change', onCatImagePicked);
   document.getElementById('catImageAiBtn').addEventListener('click', () => {
+    if (!RESTPOS.isPaidPlan(window.__settings || {})) {
+      RESTPOS.upsellToast('AI image generation is a paid feature.');
+      return;
+    }
     document.getElementById('catImageAiRow').classList.toggle('hidden');
     document.getElementById('catImageAiPrompt').focus();
   });
@@ -33,6 +46,10 @@ function boot() {
   document.getElementById('pImageInput').addEventListener('change', onProductImagePicked);
   document.getElementById('pImageRemoveBtn').addEventListener('click', clearProductImage);
   document.getElementById('pImageAiBtn').addEventListener('click', () => {
+    if (!RESTPOS.isPaidPlan(window.__settings || {})) {
+      RESTPOS.upsellToast('AI image generation is a paid feature.');
+      return;
+    }
     document.getElementById('pImageAiRow').classList.toggle('hidden');
     document.getElementById('pImageAiPrompt').focus();
   });
@@ -238,6 +255,14 @@ function addCategory(e) {
 }
 
 /* ---------------- Products table ---------------- */
+function updatePlanLimitHint() {
+  const el = document.getElementById('planLimitHint');
+  if (!el) return;
+  const limit = RESTPOS.FREE_LIMITS.products;
+  if (RESTPOS.isPaidPlan(window.__settings || {})) { el.textContent = ''; return; }
+  el.textContent = `Free plan: ${products.length}/${limit} products used. Upgrade in Settings for unlimited products.`;
+}
+
 function renderTable() {
   let list = [...products];
   if (search) list = list.filter(p => p.name.toLowerCase().includes(search) || (p.sku || '').toLowerCase().includes(search));
@@ -307,6 +332,11 @@ async function saveProduct(e) {
   const categoryId = document.getElementById('pCategory').value;
   const cat = categories.find(c => c.id === categoryId);
   if (!categoryId) { RESTPOS.toast('Please add a category first', 'error'); return; }
+  if (!id && !RESTPOS.isPaidPlan(window.__settings || {}) && products.length >= RESTPOS.FREE_LIMITS.products) {
+    RESTPOS.upsellToast(`Free plan is limited to ${RESTPOS.FREE_LIMITS.products} products.`);
+    RESTPOS.closeModal('productModal');
+    return;
+  }
 
   const data = {
     name: document.getElementById('pName').value.trim(),
