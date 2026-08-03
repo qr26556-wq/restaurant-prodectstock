@@ -121,21 +121,30 @@ const DB = (() => {
     const rootId = rootRestaurantId();
     const snap = await branchesRef().orderBy('createdAt', 'asc').get();
     const branches = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Backfill a reusable code for branches created before Branch Code support.
+    // Backfill/repair a reusable code for each branch. Two cases are handled:
+    // 1) Branch has no branchCode at all (pre-Branch-Code data) -> generate one.
+    // 2) Branch already has a branchCode saved on it, but the matching
+    //    branchCodes/{code} document was never created (e.g. an earlier
+    //    permission error mid-write) -> recreate it using the SAME code, so
+    //    a code an admin already copied/shared keeps working instead of
+    //    silently changing.
     for (const b of branches) {
-      if (!b.branchCode && auth.currentUser?.uid) {
-        try {
-          const code = await createUniqueBranchCode();
-          await branchesRef().doc(b.id).set({ branchCode: code }, { merge: true });
-          await top.restaurants.doc(b.branchRestaurantId || b.id).set({ branchCode: code }, { merge: true });
-          await top.branchCodes.doc(code).set({
-            code, rootRestaurantId: rootId, branchRestaurantId: b.branchRestaurantId || b.id,
-            branchName: b.name || 'Branch', active: b.active !== false,
-            createdByUid: auth.currentUser.uid, createdAt: FieldValue.serverTimestamp()
-          });
-          b.branchCode = code;
-        } catch (e) { console.warn('branch code backfill', e); }
-      }
+      if (!auth.currentUser?.uid) continue;
+      try {
+        if (b.branchCode) {
+          const existing = await top.branchCodes.doc(b.branchCode).get();
+          if (existing.exists) continue;
+        }
+        const code = b.branchCode || await createUniqueBranchCode();
+        await branchesRef().doc(b.id).set({ branchCode: code }, { merge: true });
+        await top.restaurants.doc(b.branchRestaurantId || b.id).set({ branchCode: code }, { merge: true });
+        await top.branchCodes.doc(code).set({
+          code, rootRestaurantId: rootId, branchRestaurantId: b.branchRestaurantId || b.id,
+          branchName: b.name || 'Branch', active: b.active !== false,
+          createdByUid: auth.currentUser.uid, createdAt: FieldValue.serverTimestamp()
+        });
+        b.branchCode = code;
+      } catch (e) { console.warn('branch code backfill', e); }
     }
     const rootSnap = await top.restaurants.doc(rootId).get();
     const rootData = rootSnap.exists ? rootSnap.data() : {};
