@@ -47,6 +47,10 @@ function boot() {
   });
 
   document.getElementById('chooseTableBtn').addEventListener('click', () => RESTPOS.openModal('tableModal'));
+  document.getElementById('scanCodesBtn').addEventListener('click', openScanModal);
+  document.getElementById('scanCloseBtn').addEventListener('click', closeScanModal);
+  document.getElementById('scanCancelBtn').addEventListener('click', closeScanModal);
+  document.getElementById('scanCaptureBtn').addEventListener('click', captureAndScan);
   document.getElementById('discountInput').addEventListener('input', renderTotals);
   document.getElementById('clearCartBtn').addEventListener('click', clearCart);
   document.getElementById('holdOrderBtn').addEventListener('click', () => submitOrder('held'));
@@ -229,6 +233,144 @@ async function submitOrder(status) {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ---------------- Camera multi-code scan ---------------- */
+let scanStream = null;
+let scanBusy = false;
+
+async function openScanModal() {
+  RESTPOS.openModal('scanModal');
+  document.getElementById('scanStatus').textContent = '';
+  document.getElementById('scanResultsList').innerHTML = '';
+  const video = document.getElementById('scanVideo');
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    video.srcObject = scanStream;
+    await video.play();
+  } catch (err) {
+    console.error(err);
+    document.getElementById('scanStatus').textContent = 'Camera khul nahi saka. Browser permission check karain (Settings > Site permissions > Camera allow karain).';
+    RESTPOS.toast('Camera access nahi mila', 'error');
+  }
+}
+
+function closeScanModal() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  RESTPOS.closeModal('scanModal');
+}
+
+async function captureAndScan() {
+  if (scanBusy) return;
+  const video = document.getElementById('scanVideo');
+  if (!scanStream || !video.videoWidth) { RESTPOS.toast('Camera abhi ready nahi hai', 'error'); return; }
+
+  scanBusy = true;
+  const statusEl = document.getElementById('scanStatus');
+  const listEl = document.getElementById('scanResultsList');
+  const btn = document.getElementById('scanCaptureBtn');
+  btn.disabled = true;
+  statusEl.textContent = 'Scan ho raha hai…';
+  listEl.innerHTML = '';
+
+  try {
+    const canvas = document.getElementById('scanCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (!('BarcodeDetector' in window)) {
+      statusEl.innerHTML = 'Yeh browser ek saath multiple code scan support nahi karta.<br>Chrome (Android/Desktop) use karain, ya neeche code number type karke product add karain:';
+      renderManualCodeEntry(listEl);
+      return;
+    }
+
+    const formats = await window.BarcodeDetector.getSupportedFormats().catch(() => null);
+    const detector = new window.BarcodeDetector(formats ? { formats } : undefined);
+    const detections = await detector.detect(canvas);
+
+    if (!detections.length) {
+      statusEl.textContent = 'Koi bhi code nahi mila. Camera thora paas/saaf rakh kar dobara try karain.';
+      renderManualCodeEntry(listEl);
+      return;
+    }
+
+    let addedCount = 0, addedQty = 0;
+    const notFound = [];
+    const foundSummary = {};
+
+    detections.forEach(d => {
+      const code = (d.rawValue || '').trim();
+      if (!code) return;
+      const product = products.find(p => (p.sku || '').trim().toLowerCase() === code.toLowerCase());
+      if (product) {
+        if (product.available === false) { notFound.push(`${code} (available nahi)`); return; }
+        const existing = cart.find(i => i.productId === product.id);
+        const inCart = existing ? existing.qty : 0;
+        if (inCart + 1 > (product.stock ?? 0)) {
+          notFound.push(`${product.name} — stock khatam`);
+          return;
+        }
+        addToCart(product.id);
+        addedCount++;
+        addedQty++;
+        foundSummary[product.name] = (foundSummary[product.name] || 0) + 1;
+      } else {
+        notFound.push(code);
+      }
+    });
+
+    statusEl.textContent = addedQty
+      ? `${addedQty} item cart mein add ho gaye.`
+      : 'Frame mein codes mile lekin koi bhi product match nahi hua.';
+
+    listEl.innerHTML = [
+      ...Object.entries(foundSummary).map(([name, qty]) =>
+        `<div class="receipt-line" style="color:var(--success,#1a7a3c)"><span class="rl-name">✔ ${RESTPOS.escapeHtml(name)}</span><span class="rl-fill"></span><span class="rl-val">x${qty}</span></div>`),
+      ...notFound.map(code =>
+        `<div class="receipt-line" style="color:var(--alert)"><span class="rl-name">✕ ${RESTPOS.escapeHtml(String(code))}</span><span class="rl-fill"></span><span class="rl-val">not found</span></div>`),
+    ].join('') || '<p class="hint">Kuch nahi mila.</p>';
+
+    if (addedQty) RESTPOS.toast(`${addedQty} item scan se add hue`, 'success');
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Scan mein masla aaya, dobara try karain.';
+    RESTPOS.toast('Scan fail ho gaya', 'error');
+  } finally {
+    btn.disabled = false;
+    scanBusy = false;
+  }
+}
+
+function renderManualCodeEntry(listEl) {
+  listEl.innerHTML = `
+    <div style="display:flex; gap:8px">
+      <input id="manualCodeInput" placeholder="Product code / SKU type karain" style="flex:1; padding:8px; border-radius:7px; border:1px solid var(--line)">
+      <button class="btn btn-primary" id="manualCodeAddBtn">Add</button>
+    </div>
+    <div id="manualCodeLog" style="margin-top:8px; display:flex; flex-direction:column; gap:6px"></div>`;
+  const input = document.getElementById('manualCodeInput');
+  const log = document.getElementById('manualCodeLog');
+  const addByCode = () => {
+    const code = input.value.trim();
+    if (!code) return;
+    const product = products.find(p => (p.sku || '').trim().toLowerCase() === code.toLowerCase());
+    if (product) {
+      addToCart(product.id);
+      log.insertAdjacentHTML('afterbegin', `<div class="receipt-line" style="color:var(--success,#1a7a3c)"><span class="rl-name">✔ ${RESTPOS.escapeHtml(product.name)}</span><span class="rl-fill"></span><span class="rl-val">added</span></div>`);
+    } else {
+      log.insertAdjacentHTML('afterbegin', `<div class="receipt-line" style="color:var(--alert)"><span class="rl-name">✕ ${RESTPOS.escapeHtml(code)}</span><span class="rl-fill"></span><span class="rl-val">not found</span></div>`);
+    }
+    input.value = '';
+    input.focus();
+  };
+  document.getElementById('manualCodeAddBtn').addEventListener('click', addByCode);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') addByCode(); });
+  input.focus();
 }
 
 function showReceipt(order) {

@@ -35,6 +35,7 @@
           </div>
           <div style="display:flex; gap:8px">
             <button class="btn" id="manageCatsBtn">Categories</button>
+            <button class="btn" id="stockScanBtn" title="Camera se code scan karke stock add karain">📷 Scan to add stock</button>
             <button class="btn btn-primary" id="addProductBtn">Add product</button>
           </div>
         </div>
@@ -126,6 +127,26 @@
         </form>
         <p class="hint" style="margin:-8px 0 14px">Tap the square to upload a picture (free), or tap ✨ AI to generate one — Pro plan (optional — defaults to a plate emoji).</p>
         <div id="catList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock scan modal -->
+  <div class="modal-backdrop" id="stockScanModal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head"><h2>📷 Scan codes to add stock</h2><button class="icon-btn" id="stockScanCloseBtn">✕</button></div>
+      <div class="modal-body">
+        <div style="position:relative; background:#000; border-radius:10px; overflow:hidden; min-height:260px; display:flex; align-items:center; justify-content:center">
+          <video id="stockScanVideo" autoplay playsinline muted style="width:100%; max-height:60vh; display:block"></video>
+          <canvas id="stockScanCanvas" style="display:none"></canvas>
+          <div style="position:absolute; bottom:8px; left:0; right:0; text-align:center; color:#fff; font-size:12px; opacity:.85; text-shadow:0 1px 2px #000">Jitne bhi item ka code frame mein dikh raha ho, wo sab detect ho kar stock mein +1 ho jayega</div>
+        </div>
+        <p class="hint" id="stockScanStatus" style="margin-top:10px"></p>
+        <div id="stockScanResultsList" style="margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="stockScanCancelBtn">Close</button>
+        <button class="btn btn-primary" id="stockScanCaptureBtn">📸 Capture &amp; update stock</button>
       </div>
     </div>
   </div>

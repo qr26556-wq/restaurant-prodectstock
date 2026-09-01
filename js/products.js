@@ -25,6 +25,10 @@ function boot() {
     openProductModal();
   });
   document.getElementById('manageCatsBtn').addEventListener('click', () => RESTPOS.openModal('catModal'));
+  document.getElementById('stockScanBtn').addEventListener('click', openStockScanModal);
+  document.getElementById('stockScanCloseBtn').addEventListener('click', closeStockScanModal);
+  document.getElementById('stockScanCancelBtn').addEventListener('click', closeStockScanModal);
+  document.getElementById('stockScanCaptureBtn').addEventListener('click', captureAndUpdateStock);
 
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
@@ -294,6 +298,158 @@ function renderTable() {
     </tr>`;
   }).join('');
   tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openProductModal(b.dataset.edit)));
+}
+
+/* ---------------- Camera scan: add stock by code ---------------- */
+let stockScanStream = null;
+let stockScanBusy = false;
+
+async function openStockScanModal() {
+  RESTPOS.openModal('stockScanModal');
+  document.getElementById('stockScanStatus').textContent = '';
+  document.getElementById('stockScanResultsList').innerHTML = '';
+  const video = document.getElementById('stockScanVideo');
+  try {
+    stockScanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    video.srcObject = stockScanStream;
+    await video.play();
+  } catch (err) {
+    console.error(err);
+    document.getElementById('stockScanStatus').textContent = 'Camera khul nahi saka. Browser permission check karain (Settings > Site permissions > Camera allow karain).';
+    RESTPOS.toast('Camera access nahi mila', 'error');
+  }
+}
+
+function closeStockScanModal() {
+  if (stockScanStream) { stockScanStream.getTracks().forEach(t => t.stop()); stockScanStream = null; }
+  RESTPOS.closeModal('stockScanModal');
+}
+
+async function captureAndUpdateStock() {
+  if (stockScanBusy) return;
+  const video = document.getElementById('stockScanVideo');
+  if (!stockScanStream || !video.videoWidth) { RESTPOS.toast('Camera abhi ready nahi hai', 'error'); return; }
+
+  stockScanBusy = true;
+  const statusEl = document.getElementById('stockScanStatus');
+  const listEl = document.getElementById('stockScanResultsList');
+  const btn = document.getElementById('stockScanCaptureBtn');
+  btn.disabled = true;
+  statusEl.textContent = 'Scan ho raha hai…';
+  listEl.innerHTML = '';
+
+  try {
+    const canvas = document.getElementById('stockScanCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (!('BarcodeDetector' in window)) {
+      statusEl.innerHTML = 'Yeh browser ek saath multiple code scan support nahi karta.<br>Chrome (Android/Desktop) use karain, ya neeche code number type karke stock add karain:';
+      renderManualStockEntry(listEl);
+      return;
+    }
+
+    const formats = await window.BarcodeDetector.getSupportedFormats().catch(() => null);
+    const detector = new window.BarcodeDetector(formats ? { formats } : undefined);
+    const detections = await detector.detect(canvas);
+
+    if (!detections.length) {
+      statusEl.textContent = 'Koi bhi code nahi mila. Camera thora paas/saaf rakh kar dobara try karain.';
+      renderManualStockEntry(listEl);
+      return;
+    }
+
+    // Count how many times each code appears in this single photo — that
+    // becomes the quantity added to that product's stock.
+    const counts = {};
+    detections.forEach(d => {
+      const code = (d.rawValue || '').trim();
+      if (code) counts[code] = (counts[code] || 0) + 1;
+    });
+
+    const updates = [];
+    const notFound = [];
+    for (const code of Object.keys(counts)) {
+      const qty = counts[code];
+      const product = products.find(p => (p.sku || '').trim().toLowerCase() === code.toLowerCase());
+      if (product) updates.push({ product, qty });
+      else notFound.push(code);
+    }
+
+    await Promise.all(updates.map(u => DB.updateProduct(u.product.id, { stock: FieldValue.increment(u.qty) })));
+
+    statusEl.textContent = updates.length
+      ? `${updates.length} product(s) ka stock update ho gaya.`
+      : 'Codes mile lekin koi bhi product match nahi hua.';
+
+    listEl.innerHTML = [
+      ...updates.map(u => `<div class="receipt-line" style="color:var(--success,#1a7a3c)"><span class="rl-name">✔ ${RESTPOS.escapeHtml(u.product.name)}</span><span class="rl-fill"></span><span class="rl-val">+${u.qty} stock</span></div>`),
+      ...notFound.map(code => `
+        <div class="receipt-line" style="color:var(--alert)">
+          <span class="rl-name">✕ ${RESTPOS.escapeHtml(code)}</span><span class="rl-fill"></span>
+          <button class="btn btn-sm" data-newcode="${RESTPOS.escapeHtml(code)}">+ Add product</button>
+        </div>`),
+    ].join('') || '<p class="hint">Kuch nahi mila.</p>';
+
+    listEl.querySelectorAll('[data-newcode]').forEach(b => b.addEventListener('click', () => {
+      closeStockScanModal();
+      openProductModal();
+      document.getElementById('pSku').value = b.dataset.newcode;
+    }));
+
+    if (updates.length) RESTPOS.toast(`${updates.length} product ka stock scan se update hua`, 'success');
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Scan mein masla aaya, dobara try karain.';
+    RESTPOS.toast('Scan fail ho gaya', 'error');
+  } finally {
+    btn.disabled = false;
+    stockScanBusy = false;
+  }
+}
+
+function renderManualStockEntry(listEl) {
+  listEl.innerHTML = `
+    <div style="display:flex; gap:8px">
+      <input id="manualStockCode" placeholder="Product code / SKU" style="flex:1; padding:8px; border-radius:7px; border:1px solid var(--line)">
+      <input id="manualStockQty" type="number" min="1" value="1" style="width:70px; padding:8px; border-radius:7px; border:1px solid var(--line)">
+      <button class="btn btn-primary" id="manualStockAddBtn">Add</button>
+    </div>
+    <div id="manualStockLog" style="margin-top:8px; display:flex; flex-direction:column; gap:6px"></div>`;
+  const codeInput = document.getElementById('manualStockCode');
+  const qtyInput = document.getElementById('manualStockQty');
+  const log = document.getElementById('manualStockLog');
+  const addByCode = async () => {
+    const code = codeInput.value.trim();
+    const qty = Number(qtyInput.value) || 1;
+    if (!code) return;
+    const product = products.find(p => (p.sku || '').trim().toLowerCase() === code.toLowerCase());
+    if (product) {
+      await DB.updateProduct(product.id, { stock: FieldValue.increment(qty) });
+      log.insertAdjacentHTML('afterbegin', `<div class="receipt-line" style="color:var(--success,#1a7a3c)"><span class="rl-name">✔ ${RESTPOS.escapeHtml(product.name)}</span><span class="rl-fill"></span><span class="rl-val">+${qty} stock</span></div>`);
+      RESTPOS.toast(`${product.name} stock +${qty}`, 'success');
+    } else {
+      log.insertAdjacentHTML('afterbegin', `
+        <div class="receipt-line" style="color:var(--alert)">
+          <span class="rl-name">✕ ${RESTPOS.escapeHtml(code)}</span><span class="rl-fill"></span>
+          <button class="btn btn-sm" data-newcode2="${RESTPOS.escapeHtml(code)}">+ Add product</button>
+        </div>`);
+      log.querySelector('[data-newcode2]').addEventListener('click', function () {
+        closeStockScanModal();
+        openProductModal();
+        document.getElementById('pSku').value = this.dataset.newcode2;
+      });
+    }
+    codeInput.value = '';
+    codeInput.focus();
+  };
+  document.getElementById('manualStockAddBtn').addEventListener('click', addByCode);
+  codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addByCode(); });
+  codeInput.focus();
 }
 
 /* ---------------- Product form ---------------- */
