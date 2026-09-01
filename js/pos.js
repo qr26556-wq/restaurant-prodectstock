@@ -96,43 +96,86 @@ function renderProducts() {
   }
   host.innerHTML = list.map(p => {
     const out = (p.stock ?? 0) <= 0;
+    const hasVariants = p.variants && p.variants.length;
+    const priceLabel = hasVariants ? 'From ' + RESTPOS.money(Math.min(...p.variants.map(v => v.price))) : RESTPOS.money(p.price);
     return `
     <button class="product-card" data-id="${p.id}" ${out ? 'disabled' : ''}>
       <div class="thumb">${p.imageUrl ? `<img src="${p.imageUrl}" alt="">` : RESTPOS.escapeHtml(p.name.charAt(0))}</div>
       <div class="info">
         <div class="pname">${RESTPOS.escapeHtml(p.name)}</div>
-        <div class="pprice">${RESTPOS.money(p.price)}</div>
+        <div class="pprice">${priceLabel}</div>
         ${out ? '<div class="pstock">Out of stock</div>' : (p.stock <= (p.lowStockThreshold ?? 5) ? `<div class="pstock">${p.stock} left</div>` : '')}
       </div>
     </button>`;
   }).join('');
   host.querySelectorAll('.product-card').forEach(btn => {
-    btn.addEventListener('click', () => addToCart(btn.dataset.id));
+    btn.addEventListener('click', () => {
+      const p = products.find(x => x.id === btn.dataset.id);
+      if (p && p.variants && p.variants.length) openVariantPicker(p);
+      else addToCart(btn.dataset.id);
+    });
+  });
+}
+
+/* ---------------- Size / variant picker ---------------- */
+function openVariantPicker(product) {
+  const existing = document.getElementById('variantPickModal');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.className = 'modal-backdrop open';
+  div.id = 'variantPickModal';
+  div.innerHTML = `
+    <div class="modal" style="max-width:360px">
+      <div class="modal-head"><h2>${RESTPOS.escapeHtml(product.name)} — size chunain</h2><button class="icon-btn" id="variantPickCloseBtn">✕</button></div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:8px">
+        ${product.variants.map((v, i) => `<button class="btn" data-vi="${i}" style="justify-content:space-between; display:flex">
+            <span>${RESTPOS.escapeHtml(v.name)}</span><span class="mono">${RESTPOS.money(v.price)}</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  div.querySelector('#variantPickCloseBtn').addEventListener('click', () => div.remove());
+  div.addEventListener('click', (e) => { if (e.target === div) div.remove(); });
+  div.querySelectorAll('[data-vi]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      addToCart(product.id, product.variants[Number(btn.dataset.vi)]);
+      div.remove();
+    });
   });
 }
 
 /* ---------------- Cart ---------------- */
-function addToCart(productId) {
+function cartKeyFor(productId, variant) { return variant ? `${productId}::${variant.name}` : productId; }
+
+function addToCart(productId, variant) {
   const p = products.find(x => x.id === productId);
   if (!p) return;
-  const existing = cart.find(i => i.productId === productId);
-  const inCart = existing ? existing.qty : 0;
-  if (inCart + 1 > (p.stock ?? 0)) { RESTPOS.toast(`Only ${p.stock ?? 0} in stock`, 'error'); return; }
+  const cartKey = cartKeyFor(productId, variant);
+  const totalInCart = cart.filter(i => i.productId === productId).reduce((s, i) => s + i.qty, 0);
+  if (totalInCart + 1 > (p.stock ?? 0)) { RESTPOS.toast(`Only ${p.stock ?? 0} in stock`, 'error'); return; }
+  const existing = cart.find(i => i.cartKey === cartKey);
   if (existing) existing.qty += 1;
-  else cart.push({ productId, name: p.name, price: p.price, qty: 1, note: '' });
+  else cart.push({
+    productId, cartKey,
+    name: variant ? `${p.name} (${variant.name})` : p.name,
+    price: variant ? variant.price : p.price,
+    variantName: variant ? variant.name : null,
+    qty: 1, note: '',
+  });
   renderCart();
 }
-function changeQty(productId, delta) {
-  const item = cart.find(i => i.productId === productId);
+function changeQty(cartKey, delta) {
+  const item = cart.find(i => i.cartKey === cartKey);
   if (!item) return;
-  const p = products.find(x => x.id === productId);
+  const p = products.find(x => x.id === item.productId);
   const next = item.qty + delta;
-  if (next <= 0) { cart = cart.filter(i => i.productId !== productId); }
-  else if (p && next > (p.stock ?? 0)) { RESTPOS.toast(`Only ${p.stock ?? 0} in stock`, 'error'); return; }
+  const otherQty = cart.filter(i => i.productId === item.productId && i.cartKey !== cartKey).reduce((s, i) => s + i.qty, 0);
+  if (next <= 0) { cart = cart.filter(i => i.cartKey !== cartKey); }
+  else if (p && (otherQty + next) > (p.stock ?? 0)) { RESTPOS.toast(`Only ${p.stock ?? 0} in stock`, 'error'); return; }
   else item.qty = next;
   renderCart();
 }
-function removeItem(productId) { cart = cart.filter(i => i.productId !== productId); renderCart(); }
+function removeItem(cartKey) { cart = cart.filter(i => i.cartKey !== cartKey); renderCart(); }
 function clearCart() {
   cart = []; selectedTable = null; document.getElementById('discountInput').value = 0;
   updateChooseTableLabel(); renderCart();
@@ -150,10 +193,10 @@ function renderCart() {
           <span class="mono">${RESTPOS.money(i.price * i.qty)}</span>
         </div>
         <div class="qty-ctrl">
-          <button data-id="${i.productId}" data-d="-1">−</button>
+          <button data-id="${i.cartKey}" data-d="-1">−</button>
           <span class="qn">${i.qty}</span>
-          <button data-id="${i.productId}" data-d="1">+</button>
-          <button data-id="${i.productId}" data-remove title="Remove" style="margin-left:auto;color:var(--alert);border-color:var(--alert-soft)">✕</button>
+          <button data-id="${i.cartKey}" data-d="1">+</button>
+          <button data-id="${i.cartKey}" data-remove title="Remove" style="margin-left:auto;color:var(--alert);border-color:var(--alert-soft)">✕</button>
         </div>
       </div>`).join('');
     host.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.id, Number(b.dataset.d))));
@@ -214,7 +257,7 @@ async function submitOrder(status) {
       name: document.getElementById('custName')?.value || '',
       phone: document.getElementById('custPhone')?.value || '',
     },
-    items: cart.map(i => ({ productId: i.productId, name: i.name, price: i.price, qty: i.qty, note: i.note || '' })),
+    items: cart.map(i => ({ productId: i.productId, name: i.name, price: i.price, qty: i.qty, note: i.note || '', variantName: i.variantName || null })),
     subtotal, discount, tax, total,
     paymentMethod, status,
     cashierId: currentUser.uid, cashierName: currentUser.name,

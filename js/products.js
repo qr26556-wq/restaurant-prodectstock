@@ -30,6 +30,20 @@ function boot() {
   document.getElementById('stockScanCancelBtn').addEventListener('click', closeStockScanModal);
   document.getElementById('stockScanCaptureBtn').addEventListener('click', captureAndUpdateStock);
 
+  document.getElementById('pAddVariantBtn').addEventListener('click', () => addVariantRow());
+
+  document.getElementById('menuScanBtn').addEventListener('click', openMenuScanModal);
+  document.getElementById('menuScanCloseBtn').addEventListener('click', closeMenuScanModal);
+  document.getElementById('menuScanCancelBtn').addEventListener('click', closeMenuScanModal);
+  document.getElementById('menuScanUploadBtn').addEventListener('click', () => document.getElementById('menuScanUploadInput').click());
+  document.getElementById('menuScanCameraBtn').addEventListener('click', () => document.getElementById('menuScanCameraInput').click());
+  document.getElementById('menuScanUploadInput').addEventListener('change', onMenuScanFilesPicked);
+  document.getElementById('menuScanCameraInput').addEventListener('change', onMenuScanFilesPicked);
+  document.getElementById('menuScanReadBtn').addEventListener('click', runMenuScanOcr);
+  document.getElementById('menuScanSelectAllBtn').addEventListener('click', () => setAllMenuScanRows(true));
+  document.getElementById('menuScanSelectNoneBtn').addEventListener('click', () => setAllMenuScanRows(false));
+  document.getElementById('menuScanSaveBtn').addEventListener('click', saveMenuScanSelections);
+
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
   document.getElementById('deleteProductBtn').addEventListener('click', deleteProduct);
@@ -288,7 +302,7 @@ function renderTable() {
       <td><strong>${RESTPOS.escapeHtml(p.name)}</strong></td>
       <td>${cat ? RESTPOS.escapeHtml(cat.name) : '<span class="hint">—</span>'}</td>
       <td class="mono">${RESTPOS.escapeHtml(p.sku || '—')}</td>
-      <td class="mono">${RESTPOS.money(p.price)}</td>
+      <td class="mono">${p.variants && p.variants.length ? 'From ' + RESTPOS.money(Math.min(...p.variants.map(v => v.price))) : RESTPOS.money(p.price)}</td>
       <td class="mono">${RESTPOS.money(p.costPrice || 0)}</td>
       <td class="${low ? 'low-stock' : ''}">${p.stock ?? 0}</td>
       <td><span class="avail-chip ${p.available !== false ? 'on' : 'off'}"></span></td>
@@ -452,6 +466,31 @@ function renderManualStockEntry(listEl) {
   codeInput.focus();
 }
 
+/* ---------------- Product form: sizes / variants ---------------- */
+function addVariantRow(name = '', price = '') {
+  const list = document.getElementById('pVariantsList');
+  const row = document.createElement('div');
+  row.className = 'field-row pVariantRow';
+  row.style.cssText = 'margin:0; align-items:flex-end';
+  row.innerHTML = `
+    <div class="field" style="margin:0"><label style="font-size:12px">Size name</label><input class="pVariantName" placeholder="e.g. Small" value="${RESTPOS.escapeHtml(name)}"></div>
+    <div class="field" style="margin:0; max-width:140px"><label style="font-size:12px">Price</label><input class="pVariantPrice" type="number" min="0" step="0.01" value="${price === '' ? '' : Number(price)}"></div>
+    <button type="button" class="btn btn-sm btn-danger" style="flex:none" title="Remove size">✕</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+}
+
+function clearVariantRows() {
+  document.getElementById('pVariantsList').innerHTML = '';
+}
+
+function getVariantsFromForm() {
+  return Array.from(document.querySelectorAll('#pVariantsList .pVariantRow')).map(row => ({
+    name: row.querySelector('.pVariantName').value.trim(),
+    price: Number(row.querySelector('.pVariantPrice').value) || 0,
+  })).filter(v => v.name);
+}
+
 /* ---------------- Product form ---------------- */
 function openProductModal(id) {
   const form = document.getElementById('productForm');
@@ -459,6 +498,7 @@ function openProductModal(id) {
   document.getElementById('pId').value = id || '';
   document.getElementById('deleteProductBtn').style.display = id ? 'inline-flex' : 'none';
   document.getElementById('productModalTitle').textContent = id ? 'Edit product' : 'Add product';
+  clearVariantRows();
 
   if (id) {
     const p = products.find(x => x.id === id);
@@ -472,11 +512,13 @@ function openProductModal(id) {
     setProductImagePreview(p.imageUrl || '');
     document.getElementById('pDesc').value = p.description || '';
     document.getElementById('pAvailable').checked = p.available !== false;
+    (p.variants || []).forEach(v => addVariantRow(v.name, v.price));
   } else {
     document.getElementById('pLowStock').value = 5;
     document.getElementById('pAvailable').checked = true;
     setProductImagePreview('');
   }
+  document.getElementById('pPriceLabel').textContent = 'Selling price';
   document.getElementById('pImageAiRow').classList.add('hidden');
   document.getElementById('pImageAiPrompt').value = '';
   RESTPOS.openModal('productModal');
@@ -494,17 +536,22 @@ async function saveProduct(e) {
     return;
   }
 
+  const variants = getVariantsFromForm();
+  let price = Number(document.getElementById('pPrice').value) || 0;
+  if (variants.length && !price) price = Math.min(...variants.map(v => v.price));
+
   const data = {
     name: document.getElementById('pName').value.trim(),
     categoryId, categoryName: cat ? cat.name : '',
     sku: document.getElementById('pSku').value.trim(),
-    price: Number(document.getElementById('pPrice').value) || 0,
+    price,
     costPrice: Number(document.getElementById('pCost').value) || 0,
     stock: Number(document.getElementById('pStock').value) || 0,
     lowStockThreshold: Number(document.getElementById('pLowStock').value) || 5,
     imageUrl: document.getElementById('pImage').value.trim(),
     description: document.getElementById('pDesc').value.trim(),
     available: document.getElementById('pAvailable').checked,
+    variants,
   };
   if (!data.name) { RESTPOS.toast('Product name is required', 'error'); return; }
 
@@ -520,6 +567,273 @@ async function saveProduct(e) {
     RESTPOS.toast('Could not save product', 'error');
   } finally {
     btn.disabled = false;
+  }
+}
+
+/* ---------------- Menu photo scan → auto-add products ---------------- */
+/*
+  Fully on-device: OCRs the menu photo with Tesseract.js, then runs simple
+  text-pattern rules to guess item names/prices (and Small/Medium/Large size
+  rows). Nothing is saved until the user reviews and confirms the list below —
+  OCR + layout guessing is never 100% accurate on real menus, so the review
+  step is required, not optional.
+*/
+let menuScanFiles = [];
+let menuScanRows = []; // { selected, name, price, category, variants }
+
+function openMenuScanModal() {
+  menuScanFiles = [];
+  menuScanRows = [];
+  document.getElementById('menuScanUploadInput').value = '';
+  document.getElementById('menuScanCameraInput').value = '';
+  document.getElementById('menuScanFileLabel').textContent = 'Koi photo nahi chuni';
+  document.getElementById('menuScanThumbs').innerHTML = '';
+  document.getElementById('menuScanReadBtn').disabled = true;
+  document.getElementById('menuScanProgressWrap').style.display = 'none';
+  document.getElementById('menuScanReviewWrap').style.display = 'none';
+  document.getElementById('menuScanSaveBtn').style.display = 'none';
+  RESTPOS.openModal('menuScanModal');
+}
+function closeMenuScanModal() { RESTPOS.closeModal('menuScanModal'); }
+
+function renderMenuScanThumbs() {
+  document.getElementById('menuScanFileLabel').textContent = menuScanFiles.length
+    ? `${menuScanFiles.length} photo(s) chuni gayin`
+    : 'Koi photo nahi chuni';
+  document.getElementById('menuScanReadBtn').disabled = !menuScanFiles.length;
+  const thumbs = document.getElementById('menuScanThumbs');
+  thumbs.innerHTML = menuScanFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<span style="position:relative; display:inline-block">
+      <img src="${url}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line,#ccc)">
+      <button type="button" data-rmphoto="${i}" title="Remove" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:var(--alert); color:#fff; border:none; font-size:12px; line-height:1; cursor:pointer">✕</button>
+    </span>`;
+  }).join('');
+  thumbs.querySelectorAll('[data-rmphoto]').forEach(b => b.addEventListener('click', () => {
+    menuScanFiles.splice(Number(b.dataset.rmphoto), 1);
+    renderMenuScanThumbs();
+  }));
+}
+
+function onMenuScanFilesPicked(e) {
+  const picked = Array.from(e.target.files || []);
+  menuScanFiles = menuScanFiles.concat(picked);
+  e.target.value = ''; // allow picking the same file / camera shot again
+  renderMenuScanThumbs();
+}
+
+/* ---- text parsing rules ---- */
+function menuMatchSizeRow(line) {
+  const m = line.match(/small[^\d]{0,10}(\d{2,6})[^\d]{0,20}?medium[^\d]{0,10}(\d{2,6})[^\d]{0,20}?large[^\d]{0,10}(\d{2,6})/i);
+  if (m) return [{ name: 'Small', price: Number(m[1]) }, { name: 'Medium', price: Number(m[2]) }, { name: 'Large', price: Number(m[3]) }];
+  return null;
+}
+function menuMatchNamePrice(line) {
+  const m = line.match(/^([A-Za-z][A-Za-z()"'.,&\-\/ ]{1,40}?)\s+(?:Rs\.?\s*)?(\d{2,6})\s*$/);
+  if (!m) return null;
+  const name = m[1].trim().replace(/\s{2,}/g, ' ');
+  const price = Number(m[2]);
+  if (!name || price < 5) return null; // filters out stray 1-2 digit OCR noise
+  return { name, price };
+}
+function menuIsCandidateHeader(line) {
+  return /^[A-Za-z][A-Za-z\s&'\-]{1,34}$/.test(line) && !/\d/.test(line) && line.replace(/\s/g, '').length >= 3;
+}
+
+function parseMenuText(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  const items = [];
+  let currentCategory = '';
+  let pendingDishName = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const sizeRow = menuMatchSizeRow(line);
+    if (sizeRow) {
+      items.push({ name: pendingDishName || 'Item', category: currentCategory, variants: sizeRow, price: sizeRow[0].price });
+      pendingDishName = null;
+      continue;
+    }
+    const np = menuMatchNamePrice(line);
+    if (np) {
+      items.push({ name: np.name, category: currentCategory, variants: null, price: np.price });
+      pendingDishName = null;
+      continue;
+    }
+    if (menuIsCandidateHeader(line)) {
+      let resolved = 'header';
+      for (let j = i + 1; j <= Math.min(i + 3, lines.length - 1); j++) {
+        if (menuMatchSizeRow(lines[j])) { resolved = 'dish'; break; }
+        if (menuMatchNamePrice(lines[j])) { resolved = 'header'; break; }
+        if (menuIsCandidateHeader(lines[j])) continue;
+        break;
+      }
+      if (resolved === 'dish') pendingDishName = line;
+      else { currentCategory = line; pendingDishName = null; }
+      continue;
+    }
+    // description / noise line — ignored
+  }
+  return items;
+}
+
+function titleCaseWords(s) {
+  return s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+async function runMenuScanOcr() {
+  if (!menuScanFiles.length) return;
+  if (typeof Tesseract === 'undefined') {
+    RESTPOS.toast('OCR library load nahi hui — internet connection check karain', 'error');
+    return;
+  }
+  const readBtn = document.getElementById('menuScanReadBtn');
+  const progWrap = document.getElementById('menuScanProgressWrap');
+  const progBar = document.getElementById('menuScanProgressBar');
+  const progText = document.getElementById('menuScanProgressText');
+  readBtn.disabled = true;
+  progWrap.style.display = 'block';
+  document.getElementById('menuScanReviewWrap').style.display = 'none';
+  document.getElementById('menuScanSaveBtn').style.display = 'none';
+
+  let fullText = '';
+  try {
+    for (let i = 0; i < menuScanFiles.length; i++) {
+      const file = menuScanFiles[i];
+      const { data } = await Tesseract.recognize(file, 'eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            const pct = Math.round(((i + m.progress) / menuScanFiles.length) * 100);
+            progBar.style.width = pct + '%';
+            progText.textContent = `Photo ${i + 1}/${menuScanFiles.length} parhi ja rahi hai… ${pct}%`;
+          } else {
+            progText.textContent = `Photo ${i + 1}/${menuScanFiles.length}: ${m.status}…`;
+          }
+        },
+      });
+      fullText += '\n' + (data.text || '');
+    }
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast('Menu parhne mein masla aaya, dobara try karain', 'error');
+    readBtn.disabled = false;
+    progWrap.style.display = 'none';
+    return;
+  }
+
+  const parsed = parseMenuText(fullText);
+  progWrap.style.display = 'none';
+  readBtn.disabled = false;
+
+  if (!parsed.length) {
+    RESTPOS.toast('Koi item pehchana nahi gaya — saaf, sidhi photo se dobara try karain', 'error');
+    return;
+  }
+
+  menuScanRows = parsed.map(it => ({
+    selected: true,
+    name: titleCaseWords(it.name),
+    price: it.price,
+    categoryName: it.category ? titleCaseWords(it.category) : 'Uncategorized',
+    variants: it.variants,
+  }));
+  renderMenuScanReview();
+}
+
+function renderMenuScanReview() {
+  const wrap = document.getElementById('menuScanReviewWrap');
+  const list = document.getElementById('menuScanReviewList');
+  const saveBtn = document.getElementById('menuScanSaveBtn');
+  wrap.style.display = 'block';
+  saveBtn.style.display = 'inline-flex';
+  document.getElementById('menuScanReviewSummary').textContent =
+    `${menuScanRows.length} item mile. Check/edit karain, phir "Selected products add karain" dabayein.`;
+
+  list.innerHTML = menuScanRows.map((row, idx) => `
+    <div class="receipt-line" style="align-items:flex-start; flex-wrap:wrap; gap:6px 10px">
+      <input type="checkbox" data-msel="${idx}" ${row.selected ? 'checked' : ''} style="margin-top:8px; width:auto">
+      <div style="flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px">
+        <div style="display:flex; gap:6px; flex-wrap:wrap">
+          <input data-mname="${idx}" value="${RESTPOS.escapeHtml(row.name)}" placeholder="Item name" style="flex:2; min-width:140px; padding:6px 8px; border-radius:7px; border:1px solid var(--line)">
+          <input data-mcat="${idx}" value="${RESTPOS.escapeHtml(row.categoryName)}" placeholder="Category" style="flex:1; min-width:110px; padding:6px 8px; border-radius:7px; border:1px solid var(--line)">
+          ${row.variants ? '' : `<input data-mprice="${idx}" type="number" min="0" step="0.01" value="${row.price}" placeholder="Price" style="width:90px; padding:6px 8px; border-radius:7px; border:1px solid var(--line)">`}
+        </div>
+        ${row.variants ? `
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            ${row.variants.map((v, vi) => `
+              <span style="display:flex; align-items:center; gap:4px; background:var(--paper-dim); border-radius:7px; padding:2px 6px">
+                <input data-mvname="${idx}:${vi}" value="${RESTPOS.escapeHtml(v.name)}" style="width:70px; border:none; background:transparent; font-size:12px">
+                <input data-mvprice="${idx}:${vi}" type="number" min="0" step="0.01" value="${v.price}" style="width:64px; border:none; background:transparent; font-size:12px">
+              </span>`).join('')}
+          </div>` : ''}
+      </div>
+    </div>`).join('');
+
+  list.querySelectorAll('[data-msel]').forEach(el => el.addEventListener('change', () => { menuScanRows[el.dataset.msel].selected = el.checked; }));
+  list.querySelectorAll('[data-mname]').forEach(el => el.addEventListener('input', () => { menuScanRows[el.dataset.mname].name = el.value; }));
+  list.querySelectorAll('[data-mcat]').forEach(el => el.addEventListener('input', () => { menuScanRows[el.dataset.mcat].categoryName = el.value; }));
+  list.querySelectorAll('[data-mprice]').forEach(el => el.addEventListener('input', () => { menuScanRows[el.dataset.mprice].price = Number(el.value) || 0; }));
+  list.querySelectorAll('[data-mvname]').forEach(el => el.addEventListener('input', () => {
+    const [ri, vi] = el.dataset.mvname.split(':');
+    menuScanRows[ri].variants[vi].name = el.value;
+  }));
+  list.querySelectorAll('[data-mvprice]').forEach(el => el.addEventListener('input', () => {
+    const [ri, vi] = el.dataset.mvprice.split(':');
+    menuScanRows[ri].variants[vi].price = Number(el.value) || 0;
+  }));
+}
+
+function setAllMenuScanRows(val) {
+  menuScanRows.forEach(r => r.selected = val);
+  renderMenuScanReview();
+}
+
+async function saveMenuScanSelections() {
+  const selected = menuScanRows.filter(r => r.selected && r.name.trim());
+  if (!selected.length) { RESTPOS.toast('Koi item select nahi kiya gaya', 'error'); return; }
+
+  const settings = window.__settings || {};
+  const limit = RESTPOS.FREE_LIMITS.products;
+  if (!RESTPOS.isPaidPlan(settings) && (products.length + selected.length) > limit) {
+    RESTPOS.upsellToast(`Free plan is limited to ${limit} products — kam items select karain ya plan upgrade karain.`);
+    return;
+  }
+
+  const saveBtn = document.getElementById('menuScanSaveBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Add ho raha hai…';
+  let added = 0;
+  try {
+    // Ensure a category exists for each distinct name used (case-insensitive match, else create).
+    const categoryCache = new Map(categories.map(c => [c.name.trim().toLowerCase(), c]));
+    for (const row of selected) {
+      const catName = (row.categoryName || 'Uncategorized').trim() || 'Uncategorized';
+      const key = catName.toLowerCase();
+      let cat = categoryCache.get(key);
+      if (!cat) {
+        const ref = await DB.addCategory({ name: catName, icon: '🍽️' });
+        cat = { id: ref.id, name: catName };
+        categoryCache.set(key, cat);
+        categories.push(cat);
+      }
+      const price = row.variants ? Math.min(...row.variants.map(v => v.price)) : Number(row.price) || 0;
+      await DB.addProduct({
+        name: row.name.trim(),
+        categoryId: cat.id, categoryName: cat.name,
+        sku: '', price, costPrice: 0, stock: 0, lowStockThreshold: 5,
+        imageUrl: '', description: '', available: true,
+        variants: row.variants ? row.variants.filter(v => v.name.trim()) : [],
+      });
+      added++;
+    }
+    RESTPOS.toast(`${added} product add ho gaye`, 'success');
+    closeMenuScanModal();
+  } catch (err) {
+    console.error(err);
+    RESTPOS.toast(`Masla aaya — ${added} product add ho chuke thay tab tak`, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '✔ Selected products add karain';
   }
 }
 

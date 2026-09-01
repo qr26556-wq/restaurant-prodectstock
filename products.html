@@ -35,7 +35,8 @@
           </div>
           <div style="display:flex; gap:8px">
             <button class="btn" id="manageCatsBtn">Categories</button>
-            <button class="btn" id="stockScanBtn" title="Camera se code scan karke stock add karain">📷 Scan to add stock</button>
+            <button class="btn" id="stockScanBtn" title="Camera se barcode scan karke stock add karain">📷 Scan to add stock</button>
+            <button class="btn" id="menuScanBtn" title="Menu ki photo se sab products khud-b-khud add karain">🧾 Scan menu → add products</button>
             <button class="btn btn-primary" id="addProductBtn">Add product</button>
           </div>
         </div>
@@ -65,8 +66,14 @@
             <div class="field"><label>SKU</label><input id="pSku"></div>
           </div>
           <div class="field-row">
-            <div class="field"><label>Selling price</label><input id="pPrice" type="number" min="0" step="0.01" required></div>
+            <div class="field"><label id="pPriceLabel">Selling price</label><input id="pPrice" type="number" min="0" step="0.01" required></div>
             <div class="field"><label>Cost price</label><input id="pCost" type="number" min="0" step="0.01"></div>
+          </div>
+          <div class="field">
+            <label>Sizes / variants (optional)</label>
+            <p class="hint" style="margin:0 0 8px">Agar yeh item alag sizes mein bikta hai (jaise Small/Medium/Large pizza), har size ka naam aur price yahan add karain. POS par cashier ko size choose karna hoga.</p>
+            <div id="pVariantsList" style="display:flex; flex-direction:column; gap:6px"></div>
+            <button type="button" class="btn btn-sm" id="pAddVariantBtn" style="margin-top:8px">+ Add size</button>
           </div>
           <div class="field-row">
             <div class="field"><label>Stock quantity</label><input id="pStock" type="number" min="0" step="1" required></div>
@@ -151,6 +158,46 @@
     </div>
   </div>
 
+  <!-- Menu photo scan modal -->
+  <div class="modal-backdrop" id="menuScanModal">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-head"><h2>🧾 Scan menu → add products</h2><button class="icon-btn" id="menuScanCloseBtn">✕</button></div>
+      <div class="modal-body">
+        <p class="hint" style="margin-top:0">Apne printed menu ki saaf, sidhi photo(s) chunain. Yeh menu parh kar niche list bana dega — save karne se pehle aap naam, price aur category check/edit kar sakte hain.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <input type="file" id="menuScanUploadInput" accept="image/*" multiple class="hidden">
+          <input type="file" id="menuScanCameraInput" accept="image/*" capture="environment" class="hidden">
+          <button type="button" class="btn" id="menuScanUploadBtn">📁 Upload photo(s)</button>
+          <button type="button" class="btn" id="menuScanCameraBtn">📷 Camera se lein</button>
+          <button type="button" class="btn btn-primary" id="menuScanReadBtn" disabled>🔍 Menu parhein</button>
+          <span class="hint" id="menuScanFileLabel">Koi photo nahi chuni</span>
+        </div>
+        <div id="menuScanThumbs" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px"></div>
+        <div id="menuScanProgressWrap" style="display:none; margin-top:12px">
+          <div style="height:8px; border-radius:4px; background:var(--paper-dim); overflow:hidden">
+            <div id="menuScanProgressBar" style="height:100%; width:0%; background:var(--brand,#7A0F1F); transition:width .2s"></div>
+          </div>
+          <p class="hint" id="menuScanProgressText" style="margin:6px 0 0">Shuru ho raha hai…</p>
+        </div>
+        <div id="menuScanReviewWrap" style="display:none; margin-top:14px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap">
+            <p class="hint" id="menuScanReviewSummary" style="margin:0"></p>
+            <div style="display:flex; gap:8px">
+              <button type="button" class="btn btn-sm" id="menuScanSelectAllBtn">Sab select karain</button>
+              <button type="button" class="btn btn-sm" id="menuScanSelectNoneBtn">Sab hatayein</button>
+            </div>
+          </div>
+          <div id="menuScanReviewList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; max-height:44vh; overflow-y:auto"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="menuScanCancelBtn">Close</button>
+        <button class="btn btn-primary" id="menuScanSaveBtn" style="display:none">✔ Selected products add karain</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>

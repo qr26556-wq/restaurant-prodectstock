@@ -131,13 +131,26 @@ function renderCodesTable(list) {
         ? `<span class="badge badge-sage">Used${c.usedByName ? ' · ' + RESTPOS.escapeHtml(c.usedByName) : ''}</span>`
         : `<span class="badge badge-amber">Unused</span>`}</td>
       <td style="text-align:right">
+        <button class="icon-btn" title="Copy code" data-copycode="${c.id}">${RESTPOS.icon('copy')}</button>
         ${!c.used ? `<button class="icon-btn" title="Delete code" data-delcode="${c.id}">${RESTPOS.icon('trash')}</button>` : ''}
       </td>
     </tr>`).join('');
 
+  tbody.querySelectorAll('[data-copycode]').forEach(btn => {
+    btn.addEventListener('click', () => copyCodeToClipboard(btn.dataset.copycode));
+  });
   tbody.querySelectorAll('[data-delcode]').forEach(btn => {
     btn.addEventListener('click', () => deleteCode(btn.dataset.delcode));
   });
+}
+
+async function copyCodeToClipboard(code) {
+  try {
+    await navigator.clipboard.writeText(code);
+    RESTPOS.toast(`Code ${code} copied.`, 'success');
+  } catch (_) {
+    RESTPOS.toast('Could not copy — select and copy the code manually.', 'error');
+  }
 }
 
 async function deleteCode(code) {
