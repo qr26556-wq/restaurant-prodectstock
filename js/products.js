@@ -42,6 +42,7 @@ function boot() {
   document.getElementById('menuScanReadBtn').addEventListener('click', runMenuScanOcr);
   document.getElementById('menuScanSelectAllBtn').addEventListener('click', () => setAllMenuScanRows(true));
   document.getElementById('menuScanSelectNoneBtn').addEventListener('click', () => setAllMenuScanRows(false));
+  document.getElementById('menuScanAddRowBtn').addEventListener('click', () => addManualMenuScanRow());
   document.getElementById('menuScanSaveBtn').addEventListener('click', saveMenuScanSelections);
 
   document.getElementById('productForm').addEventListener('submit', saveProduct);
@@ -624,17 +625,31 @@ function onMenuScanFilesPicked(e) {
 
 /* ---- text parsing rules ---- */
 function menuMatchSizeRow(line) {
-  const m = line.match(/small[^\d]{0,10}(\d{2,6})[^\d]{0,20}?medium[^\d]{0,10}(\d{2,6})[^\d]{0,20}?large[^\d]{0,10}(\d{2,6})/i);
-  if (m) return [{ name: 'Small', price: Number(m[1]) }, { name: 'Medium', price: Number(m[2]) }, { name: 'Large', price: Number(m[3]) }];
-  return null;
-}
-function menuMatchNamePrice(line) {
-  const m = line.match(/^([A-Za-z][A-Za-z()"'.,&\-\/ ]{1,40}?)\s+(?:Rs\.?\s*)?(\d{2,6})\s*$/);
+  const m = line.match(/^(.*?)\bsmall\b[^\d]{0,10}(\d{2,6})[^\d]{0,20}?medium\b[^\d]{0,10}(\d{2,6})[^\d]{0,20}?large\b[^\d]{0,10}(\d{2,6})/i);
   if (!m) return null;
-  const name = m[1].trim().replace(/\s{2,}/g, ' ');
-  const price = Number(m[2]);
-  if (!name || price < 5) return null; // filters out stray 1-2 digit OCR noise
-  return { name, price };
+  return {
+    inlineName: m[1] ? m[1].trim().replace(/[-:|•]+$/, '').trim() : '',
+    variants: [{ name: 'Small', price: Number(m[2]) }, { name: 'Medium', price: Number(m[3]) }, { name: 'Large', price: Number(m[4]) }],
+    fullMatch: m[0],
+  };
+}
+// Finds every "Name ... price" occurrence in a line (handles single items,
+// qty-prefixed items like "Hot Wings 5x 300", and two items OCR'd onto one
+// merged line from a multi-column menu layout).
+const MENU_NAME_PRICE_RE = /([A-Za-z0-9][A-Za-z0-9()"'.,&\-\/]{0,25}(?:\s[A-Za-z0-9()"'.,&\-\/]{1,25}){0,4}?)\s+(?:(\d{1,2})\s*[xX]\s+)?(?:Rs\.?\s*)?(\d{2,6})(?=\s|$)/g;
+function menuFindNamePriceMatches(line) {
+  const out = [];
+  let m;
+  MENU_NAME_PRICE_RE.lastIndex = 0;
+  while ((m = MENU_NAME_PRICE_RE.exec(line))) {
+    let name = m[1].trim().replace(/\s{2,}/g, ' ');
+    if (!/[A-Za-z]/.test(name)) continue; // reject pure-numeric "names" (phone numbers, times, etc.)
+    const price = Number(m[3]);
+    if (price < 10 || price > 99999) continue;
+    if (m[2]) name = `${name} (${m[2]}x)`;
+    out.push({ name, price });
+  }
+  return out;
 }
 function menuIsCandidateHeader(line) {
   return /^[A-Za-z][A-Za-z\s&'\-]{1,34}$/.test(line) && !/\d/.test(line) && line.replace(/\s/g, '').length >= 3;
@@ -650,13 +665,16 @@ function parseMenuText(rawText) {
     const line = lines[i];
     const sizeRow = menuMatchSizeRow(line);
     if (sizeRow) {
-      items.push({ name: pendingDishName || 'Item', category: currentCategory, variants: sizeRow, price: sizeRow[0].price });
+      const name = sizeRow.inlineName || pendingDishName || 'Item';
+      items.push({ name, category: currentCategory, variants: sizeRow.variants, price: sizeRow.variants[0].price });
       pendingDishName = null;
+      const rest = line.slice(sizeRow.fullMatch.length).trim();
+      if (rest) menuFindNamePriceMatches(rest).forEach(it => items.push({ ...it, category: currentCategory, variants: null }));
       continue;
     }
-    const np = menuMatchNamePrice(line);
-    if (np) {
-      items.push({ name: np.name, category: currentCategory, variants: null, price: np.price });
+    const matches = menuFindNamePriceMatches(line);
+    if (matches.length) {
+      matches.forEach(it => items.push({ ...it, category: currentCategory, variants: null }));
       pendingDishName = null;
       continue;
     }
@@ -664,7 +682,7 @@ function parseMenuText(rawText) {
       let resolved = 'header';
       for (let j = i + 1; j <= Math.min(i + 3, lines.length - 1); j++) {
         if (menuMatchSizeRow(lines[j])) { resolved = 'dish'; break; }
-        if (menuMatchNamePrice(lines[j])) { resolved = 'header'; break; }
+        if (menuFindNamePriceMatches(lines[j]).length) { resolved = 'header'; break; }
         if (menuIsCandidateHeader(lines[j])) continue;
         break;
       }
@@ -725,11 +743,6 @@ async function runMenuScanOcr() {
   progWrap.style.display = 'none';
   readBtn.disabled = false;
 
-  if (!parsed.length) {
-    RESTPOS.toast('Koi item pehchana nahi gaya — saaf, sidhi photo se dobara try karain', 'error');
-    return;
-  }
-
   menuScanRows = parsed.map(it => ({
     selected: true,
     name: titleCaseWords(it.name),
@@ -737,7 +750,17 @@ async function runMenuScanOcr() {
     categoryName: it.category ? titleCaseWords(it.category) : 'Uncategorized',
     variants: it.variants,
   }));
+  if (!parsed.length) {
+    RESTPOS.toast('Koi item khud pehchana nahi gaya — "+ Item add karain" se manually likh sakte hain', 'error');
+  }
   renderMenuScanReview();
+}
+
+function addManualMenuScanRow() {
+  menuScanRows.push({ selected: true, name: '', price: 0, categoryName: 'Uncategorized', variants: null });
+  renderMenuScanReview();
+  const inputs = document.querySelectorAll('#menuScanReviewList [data-mname]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
 }
 
 function renderMenuScanReview() {
@@ -746,8 +769,9 @@ function renderMenuScanReview() {
   const saveBtn = document.getElementById('menuScanSaveBtn');
   wrap.style.display = 'block';
   saveBtn.style.display = 'inline-flex';
-  document.getElementById('menuScanReviewSummary').textContent =
-    `${menuScanRows.length} item mile. Check/edit karain, phir "Selected products add karain" dabayein.`;
+  document.getElementById('menuScanReviewSummary').textContent = menuScanRows.length
+    ? `${menuScanRows.length} item mile. Check/edit karain (ya "+ Item add karain" se aur likhain), phir "Selected products add karain" dabayein.`
+    : 'Koi item nahi mila — "+ Item add karain" se khud likh sakte hain.';
 
   list.innerHTML = menuScanRows.map((row, idx) => `
     <div class="receipt-line" style="align-items:flex-start; flex-wrap:wrap; gap:6px 10px">
@@ -767,6 +791,7 @@ function renderMenuScanReview() {
               </span>`).join('')}
           </div>` : ''}
       </div>
+      <button type="button" class="icon-btn" data-mremove="${idx}" title="Remove row" style="color:var(--alert)">✕</button>
     </div>`).join('');
 
   list.querySelectorAll('[data-msel]').forEach(el => el.addEventListener('change', () => { menuScanRows[el.dataset.msel].selected = el.checked; }));
@@ -780,6 +805,10 @@ function renderMenuScanReview() {
   list.querySelectorAll('[data-mvprice]').forEach(el => el.addEventListener('input', () => {
     const [ri, vi] = el.dataset.mvprice.split(':');
     menuScanRows[ri].variants[vi].price = Number(el.value) || 0;
+  }));
+  list.querySelectorAll('[data-mremove]').forEach(el => el.addEventListener('click', () => {
+    menuScanRows.splice(Number(el.dataset.mremove), 1);
+    renderMenuScanReview();
   }));
 }
 
