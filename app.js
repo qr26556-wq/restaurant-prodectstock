@@ -1,26 +1,149 @@
-const FALLBACK_PRODUCTS=[
-{id:'firehouse',name:'The Firehouse',category:'pizza',price:1899,description:'Pepperoni, roasted peppers, jalapeño and hot honey.',image:'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=700&q=85',popular:true},
-{id:'garden',name:'Garden Party',category:'pizza',price:1699,description:'Mushrooms, bell peppers, olives, onions and herbs.',image:'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=700&q=85'},
-{id:'truffle',name:'Truffle Bianca',category:'pizza',price:2199,description:'Creamy white sauce, mozzarella, mushroom and truffle oil.',image:'https://images.unsplash.com/photo-1579751626657-72bc17010498?auto=format&fit=crop&w=700&q=85'},
-{id:'bbq',name:'Smoky BBQ Chicken',category:'pizza',price:1999,description:'Smoked chicken, red onion, sweet BBQ and cheddar.',image:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=85',popular:true},
-{id:'garlic',name:'Garlic Bread',category:'sides',price:499,description:'Warm, buttery and finished with parsley.',image:'https://images.unsplash.com/photo-1573140401552-3fab0b24306f?auto=format&fit=crop&w=700&q=85'},
-{id:'wings',name:'Hot Wings',category:'sides',price:799,description:'Crispy wings tossed in your choice of sauce.',image:'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=700&q=85'},
-{id:'cola',name:'Chilled Cola',category:'drinks',price:199,description:'The perfect cold pairing for your pizza.',image:'https://images.unsplash.com/photo-1629203849820-fdd70d49c38e?auto=format&fit=crop&w=700&q=85'},
-{id:'brownie',name:'Fudge Brownie',category:'dessert',price:399,description:'Warm chocolate brownie with a soft centre.',image:'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=700&q=85'}];
-const pathShopId=location.pathname.match(/^\/shop\/([^/]+)/)?.[1]||'';
-const restaurantId=new URLSearchParams(location.search).get('restaurant')||pathShopId||'';
-const cartStorageKey=`crust_cart_${restaurantId||'demo'}`;
-let products=[...FALLBACK_PRODUCTS],cart=JSON.parse(localStorage.getItem(cartStorageKey)||'[]'),activeCategory='all',orderType='delivery',restaurantProfile=null;
-const $=id=>document.getElementById(id);const money=n=>`Rs. ${Number(n).toLocaleString('en-PK')}`;const escapeHtml=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function saveCart(){localStorage.setItem(cartStorageKey,JSON.stringify(cart));}
-function filteredProducts(){const q=($('menuSearch')?.value||'').toLowerCase();return products.filter(p=>(activeCategory==='all'||p.category===activeCategory)&&(!q||`${p.name} ${p.description}`.toLowerCase().includes(q)));}
-function renderProducts(){const list=filteredProducts();$('menuGrid').innerHTML=list.map(p=>`<article class="menu-card"><div class="popular-tag ${p.popular?'':'hidden'}">Customer favourite</div><img class="menu-image" src="${p.image}" alt="${escapeHtml(p.name)}" loading="lazy"><div class="menu-info"><div class="menu-meta"><div><h3>${escapeHtml(p.name)}</h3><p class="menu-description">${escapeHtml(p.description)}</p><span class="menu-price">${money(p.price)}</span></div><button class="add-button" data-add="${p.id}" aria-label="Add ${escapeHtml(p.name)}">+</button></div></div></article>`).join('');$('emptyState').classList.toggle('hidden',list.length>0);document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>openCustomizer(b.dataset.add)));}
-function renderCart(){const count=cart.reduce((n,i)=>n+i.qty,0),total=cart.reduce((n,i)=>n+i.price*i.qty,0);$('cartCount').textContent=count;$('cartTotal').textContent=money(total);$('cartEmpty').classList.toggle('hidden',cart.length>0);$('cartFooter').classList.toggle('hidden',cart.length===0);$('cartItems').innerHTML=cart.map(i=>`<div class="cart-line"><img src="${i.image}" alt=""><div class="cart-line-info"><strong>${escapeHtml(i.name)}</strong><span>${i.options?.join(', ')||'Classic recipe'}</span><div class="qty-control"><button data-qty="${i.key}" data-delta="-1" aria-label="Decrease quantity">−</button><span>${i.qty}</span><button data-qty="${i.key}" data-delta="1" aria-label="Increase quantity">+</button></div></div><span class="cart-line-price">${money(i.price*i.qty)}</span></div>`).join('');document.querySelectorAll('[data-qty]').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.key,Number(b.dataset.delta))));}
-function changeQty(key,delta){const item=cart.find(i=>i.key===key);if(!item)return;item.qty+=delta;if(item.qty<1)cart=cart.filter(i=>i.key!==key);saveCart();renderCart();}
-function openDrawer(){$('cartDrawer').classList.add('open');$('drawerBackdrop').classList.add('open');$('cartDrawer').setAttribute('aria-hidden','false')}function closeDrawer(){$('cartDrawer').classList.remove('open');$('drawerBackdrop').classList.remove('open');$('cartDrawer').setAttribute('aria-hidden','true')}
-function openCustomizer(id){const p=products.find(x=>x.id===id);if(!p)return;if(p.category!=='pizza'){addItem(p,[],p.price);return}$('customizerContent').innerHTML=`<p class="eyebrow">Make it yours</p><h2 id="customizerTitle">${escapeHtml(p.name)}</h2><img class="customizer-image" src="${p.image}" alt="${escapeHtml(p.name)}"><div class="choice-group"><h4>Choose your size</h4><label class="choice-row"><span><input type="radio" name="size" value="small" data-extra="0" checked> Small</span><span>10&quot;</span></label><label class="choice-row"><span><input type="radio" name="size" value="medium" data-extra="300"> Medium</span><span>+ Rs. 300</span></label><label class="choice-row"><span><input type="radio" name="size" value="large" data-extra="600"> Large</span><span>+ Rs. 600</span></label></div><div class="choice-group"><h4>Extra toppings</h4><label class="choice-row"><span><input type="checkbox" value="Extra cheese" data-extra="250"> Extra cheese</span><span>+ Rs. 250</span></label><label class="choice-row"><span><input type="checkbox" value="Jalapeños" data-extra="180"> Jalapeños</span><span>+ Rs. 180</span></label></div><button class="button button-primary full-width customizer-add" id="customizerAdd">Add to order <span>${money(p.price)}</span></button>`;$('customizerBackdrop').classList.remove('hidden');$('customizerAdd').addEventListener('click',()=>{const size=document.querySelector('input[name=size]:checked'),toppings=[...document.querySelectorAll('.choice-group input[type=checkbox]:checked')],extras=Number(size.dataset.extra)+toppings.reduce((n,x)=>n+Number(x.dataset.extra),0);addItem(p,[size.value,...toppings.map(x=>x.value)],p.price+extras);$('customizerBackdrop').classList.add('hidden');});}
-function addItem(p,options,price){const key=`${p.id}-${options.join('-')||'classic'}`;const item=cart.find(i=>i.key===key);if(item)item.qty++;else cart.push({key,id:p.id,name:p.name,price,image:p.image,options,qty:1});saveCart();renderCart();showToast(`${p.name} added to your order`);}
-function showToast(message){$('toast').textContent=message;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400)}
-async function loadFirestoreProducts(){if(!restaurantId||typeof db==='undefined')return;try{const shopRef=db.collection('restaurants').doc(restaurantId);const shopSnap=await shopRef.get();if(!shopSnap.exists){document.body.innerHTML='<main class="shop-error"><p class="eyebrow">Shop unavailable</p><h1>This shop could not be found.</h1><p>Please check the shop link and try again.</p></main>';return;}restaurantProfile=shopSnap.data()||{};const settingsSnap=await shopRef.collection('settings').doc('general').get();const settings=settingsSnap.exists?settingsSnap.data()||{}:{};const shopName=restaurantProfile.name||settings.restaurantName||'Fresh Pizza';document.title=`${shopName} — Order online`;document.querySelector('.brand')?.setAttribute('aria-label',`${shopName} home`);const brandText=document.querySelector('.brand > span:last-child');if(brandText)brandText.textContent=shopName;const snap=await shopRef.collection('products').where('active','!=',false).get();if(!snap.empty){products=snap.docs.map(d=>({id:d.id,...d.data(),image:d.data().image||FALLBACK_PRODUCTS[0].image,category:d.data().category||'pizza'}));renderProducts();showToast(`${shopName} menu loaded`);}}catch(error){console.warn('[v0] Shop menu unavailable',error.message);showToast('Could not load this shop menu')}}
-async function placeOrder(e){e.preventDefault();if(!cart.length)return;const btn=$('placeOrderButton');btn.disabled=true;btn.textContent='Sending order…';const data={customerName:$('customerName').value.trim(),customerPhone:$('customerPhone').value.trim(),address:$('checkoutAddress').value.trim(),orderType,paymentMethod:$('paymentMethod').value};const items=cart.map(i=>({productId:i.id,name:i.name,qty:i.qty,price:i.price,options:i.options||[]}));const total=cart.reduce((n,i)=>n+i.price*i.qty,0);const payload={...data,items,total,status:'new',source:'online',restaurantId,restaurantName:restaurantProfile?.name||'',createdAt:typeof FieldValue!=='undefined'?FieldValue.serverTimestamp():new Date().toISOString()};try{const rid=restaurantId;if(rid&&typeof auth!=='undefined'&&typeof DB!=='undefined'){if(!auth.currentUser)await auth.signInAnonymously();DB.init(rid);await DB.createOrder(payload);}else if(typeof db!=='undefined'){await db.collection('onlineOrders').add(payload);}const orderNumber=`CC-${String(Date.now()).slice(-6)}`;$('checkoutBackdrop').classList.add('hidden');closeDrawer();cart=[];saveCart();renderCart();$('checkoutForm').reset();showToast(`Order ${orderNumber} is on its way to the kitchen`);}catch(error){console.error('[v0] Order placement failed',error);showToast('Could not place order. Please try again.')}finally{btn.disabled=false;btn.innerHTML='Place order <span>→</span>';}}
-document.addEventListener('DOMContentLoaded',()=>{renderProducts();renderCart();loadFirestoreProducts();document.querySelectorAll('.category-tab').forEach(b=>b.addEventListener('click',()=>{activeCategory=b.dataset.category;document.querySelectorAll('.category-tab').forEach(x=>x.classList.toggle('active',x===b));renderProducts()}));$('menuSearch').addEventListener('input',renderProducts);$('cartTrigger').addEventListener('click',openDrawer);$('cartClose').addEventListener('click',closeDrawer);$('drawerBackdrop').addEventListener('click',closeDrawer);$('customizerClose').addEventListener('click',()=>$('customizerBackdrop').classList.add('hidden'));$('checkoutClose').addEventListener('click',()=>$('checkoutBackdrop').classList.add('hidden'));document.querySelectorAll('.order-type-button').forEach(b=>b.addEventListener('click',()=>{orderType=b.dataset.type;document.querySelectorAll('.order-type-button').forEach(x=>x.classList.toggle('active',x===b));$('addressField')?.classList.toggle('hidden',orderType==='pickup')}));$('checkoutButton').addEventListener('click',()=>{if(orderType==='delivery'&&!$('customerAddress').value.trim()){showToast('Please add a delivery address');return}$('checkoutAddress').value=$('customerAddress').value;$('checkoutBackdrop').classList.remove('hidden')});$('checkoutForm').addEventListener('submit',placeOrder);$('dealButton').addEventListener('click',()=>{const a=products.find(p=>p.id==='firehouse'),b=products.find(p=>p.id==='garden');if(a)addItem(a,['medium'],a.price+300);if(b)addItem(b,['medium'],b.price+300);openDrawer()})});
+// Simple POS app (localStorage-based)
+const PRODUCTS_KEY = 'pos_products_v1';
+const CART_KEY = 'pos_cart_v1';
+const ORDERS_KEY = 'pos_orders_v1';
+
+function loadProducts() {
+  const raw = localStorage.getItem(PRODUCTS_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveProducts(list) {
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(list));
+}
+function loadCart() {
+  const raw = localStorage.getItem(CART_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+function saveCart(cart) {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+function loadOrders() {
+  return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+}
+function saveOrders(list) {
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(list));
+}
+
+function renderProducts() {
+  const list = loadProducts();
+  const container = document.getElementById('productList');
+  container.innerHTML = '';
+  if (!list.length) { container.innerHTML = '<i>No products. Click "Load sample products."</i>'; return; }
+  list.forEach(p=>{
+    const div = document.createElement('div');
+    div.className = 'prod';
+    div.innerHTML = `<div><strong>${p.name}</strong><br>₹${p.price.toFixed(2)}</div>`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Add';
+    btn.onclick = ()=> addToCart(p.id);
+    div.appendChild(btn);
+    container.appendChild(div);
+  });
+}
+
+function renderCart() {
+  const cart = loadCart();
+  const products = loadProducts();
+  const container = document.getElementById('cartList');
+  container.innerHTML = '';
+  let total = 0;
+  for (const id in cart) {
+    const qty = cart[id];
+    const p = products.find(x=>x.id==id);
+    if (!p) continue;
+    const line = document.createElement('div');
+    line.style.display='flex'; line.style.justifyContent='space-between'; line.style.marginBottom='6px';
+    line.innerHTML = `<div>${p.name} x ${qty}</div><div>₹${(p.price*qty).toFixed(2)}</div>`;
+    container.appendChild(line);
+    total += p.price * qty;
+  }
+  document.getElementById('total').textContent = total.toFixed(2);
+}
+
+function addToCart(id) {
+  const cart = loadCart();
+  cart[id] = (cart[id] || 0) + 1;
+  saveCart(cart);
+  renderCart();
+}
+
+function seedSampleProducts() {
+  const sample = [
+    { id: 'p1', name: 'Veg Burger', price: 79.00 },
+    { id: 'p2', name: 'Paneer Wrap', price: 129.00 },
+    { id: 'p3', name: 'Coffee', price: 49.00 },
+    { id: 'p4', name: 'French Fries', price: 59.00 }
+  ];
+  saveProducts(sample);
+  renderProducts();
+  renderCart();
+}
+
+function clearCart() {
+  localStorage.removeItem(CART_KEY);
+  renderCart();
+}
+
+function payCart() {
+  const cart = loadCart();
+  if (Object.keys(cart).length===0) { alert('Cart is empty'); return; }
+  const products = loadProducts();
+  let total = 0;
+  const items = [];
+  for (const id in cart) {
+    const p = products.find(x=>x.id==id);
+    const qty = cart[id];
+    items.push({ id, name: p.name, qty, price: p.price });
+    total += p.price * qty;
+  }
+  const orders = loadOrders();
+  const order = { id: 'o'+Date.now(), created: new Date().toISOString(), items, total };
+  orders.push(order);
+  saveOrders(orders);
+  alert('Payment recorded. Total ₹' + total.toFixed(2));
+  clearCart();
+  renderOrders();
+}
+
+function renderOrders() {
+  const orders = loadOrders();
+  const el = document.getElementById('ordersList');
+  if (!orders.length) { el.innerHTML = '<i>No orders yet.</i>'; return; }
+  el.innerHTML = '';
+  orders.slice().reverse().forEach(o=>{
+    const div = document.createElement('div');
+    div.className = 'order';
+    div.innerHTML = `<div><strong>${o.id}</strong> — ${new Date(o.created).toLocaleString()}</div>
+      <div>Total: ₹${o.total.toFixed(2)}</div>`;
+    el.appendChild(div);
+  });
+}
+
+// PWA install prompt handling
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.classList.remove('hidden');
+});
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('seed').addEventListener('click', seedSampleProducts);
+  document.getElementById('clear').addEventListener('click', clearCart);
+  document.getElementById('pay').addEventListener('click', payCart);
+
+  const installBtn = document.getElementById('installBtn');
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      installBtn.classList.add('hidden');
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+  }
+
+  renderProducts();
+  renderCart();
+  renderOrders();
+});
