@@ -271,13 +271,18 @@ async function loadSettings() {
     document.getElementById('sName').value = data.restaurantName || '';
     document.getElementById('sAddress').value = data.address || '';
     document.getElementById('sPhone').value = data.phone || '';
-    document.getElementById('sCurrency').value = data.currency || '₹';
+    document.getElementById('sCurrency').value = data.currency || 'Rs';
     document.getElementById('sTax').value = data.taxPercent ?? 0;
     document.getElementById('sDayStart').value = data.businessDayStart || '00:00';
     document.getElementById('sDayEnd').value = data.businessDayEnd || '23:59';
     document.getElementById('sLanguage').value = data.language || 'en';
-    document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
-    document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
+  document.getElementById('sFooter').value = data.receiptFooter || 'Thank you for dining with us!';
+  document.getElementById('sLogoUrl').value = data.theme?.logoUrl || '';
+  document.getElementById('sPrimaryColor').value = data.theme?.primaryColor || '#7A0F1F';
+  document.getElementById('sAccentColor').value = data.theme?.accentColor || '#C9971F';
+  document.getElementById('sStorefrontFont').value = data.theme?.font || 'system';
+  document.getElementById('sBannerText').value = data.theme?.bannerText || '';
+  document.getElementById('sPaperWidth').value = String(data.receiptPaperWidth || 80);
     document.getElementById('sAutoDelete').checked = !!data.autoDeleteOldOrders;
     __settings = merged;
     renderPlanStatus();
@@ -301,8 +306,15 @@ async function saveSettings() {
     businessDayStart: document.getElementById('sDayStart').value || '00:00',
     businessDayEnd: document.getElementById('sDayEnd').value || '23:59',
     language: document.getElementById('sLanguage').value,
-    receiptFooter: document.getElementById('sFooter').value.trim(),
-    receiptPaperWidth: parseInt(document.getElementById('sPaperWidth').value, 10),
+  receiptFooter: document.getElementById('sFooter').value.trim(),
+  theme: {
+    logoUrl: document.getElementById('sLogoUrl').value.trim(),
+    primaryColor: document.getElementById('sPrimaryColor').value,
+    accentColor: document.getElementById('sAccentColor').value,
+    font: document.getElementById('sStorefrontFont').value,
+    bannerText: document.getElementById('sBannerText').value.trim()
+  },
+  receiptPaperWidth: parseInt(document.getElementById('sPaperWidth').value, 10),
     autoDeleteOldOrders: document.getElementById('sAutoDelete').checked,
   };
 
